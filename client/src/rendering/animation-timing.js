@@ -1,4 +1,7 @@
-/** Compile original frame clocks and geometry without allocating renderer resources. */
+/** Compile original frame clocks and geometry without allocating renderer resources.
+ *  NOTE: Per-frame bottom alignment is NOT done here — textures may not be fully loaded
+ *  at compile time, so texture.height is unreliable. Alignment happens at runtime in
+ *  EntityAnimation.advance() when we have the actual loaded sprite heights. */
 export function compileAction(frames, textures) {
   let duration = 0;
   let preActionMs = 0;

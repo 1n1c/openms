@@ -201,6 +201,7 @@ export class OfflineMobRenderer {
       const source = {
         ...slot.descriptor.entity,
         id: mob.id,
+        kind: "mob",
         order: 100000 + Number(mob.id.slice(5)),
         x: mob.x,
         y: mob.y,

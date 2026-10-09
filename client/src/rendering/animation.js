@@ -69,6 +69,12 @@ export class EntityAnimation {
     this.container.visible = entity.visible !== false;
     this.container.alpha = entity.opacity ?? 1;
     this.container.scale.x = entity.flip ? -1 : 1;
+    // Only mobs need per-frame bottom alignment — their WZ frame data has no
+    // pre-defined origin anchor, so frames can have slightly different bottoms
+    // (e.g. snail move: 24,25,26px). Player/NPC WZ data already has correct
+    // origin alignment. Non-foot entities (portal, ghost, drop) keep their
+    // authored offsets and alignBottom must stay false.
+    this.alignBottom = entity.kind === "mob";
     let capacity = 0;
     for (const [name, frames] of Object.entries(entity.actions)) {
       const action = compileAction(frames, textures);
@@ -227,6 +233,22 @@ export class EntityAnimation {
     this.frame = index;
     this.applyPoseTransform(this.current.frames[index]);
     const parts = this.current.parts[index];
+    // Runtime bottom alignment — compute actual sprite bottoms using loaded textures
+    // and offset so every frame's sprite bottom sits at container.y (footpoint = 0).
+    // This is done here (not in compileAction) because textures may still be loading
+    // at compile time, giving wrong heights. alignBottom=false preserves authored offsets.
+    // Use -Infinity as initial value so negative sprite bottoms (sprite above footpoint,
+    // e.g. part.y=-32 + texH=27 = -5) are correctly captured, not clamped to 0.
+    let frameBottom = -Infinity;
+    if (this.alignBottom) {
+      for (const part of parts) {
+        const texture = this.textures.get(part.texture);
+        if (texture && texture.height) {
+          frameBottom = Math.max(frameBottom, part.y + texture.height);
+        }
+      }
+      if (frameBottom === -Infinity) frameBottom = 0;
+    }
     for (let i = 0; i < this.sprites.length; i++) {
       const sprite = this.sprites[i];
       const part = parts[i];
@@ -235,7 +257,12 @@ export class EntityAnimation {
       const texture = this.textures.get(part.texture);
       sprite.tint = this.tint;
       sprite.texture = texture;
-      sprite.position.set(part.x + (part.flip ? texture.width : 0), part.y);
+      // Apply runtime bottom alignment — only when alignBottom is true AND multi-frame.
+      // alignBottom=false (player, npc, portal, ghost, drop) always gets alignY=0.
+      const alignY = this.alignBottom && this.current.frames.length > 1
+        ? -frameBottom
+        : 0;
+      sprite.position.set(part.x + (part.flip ? texture.width : 0), part.y + alignY);
       sprite.scale.set(part.flip ? -1 : 1, 1);
       sprite.alpha = part.opacity ?? 1;
     }
