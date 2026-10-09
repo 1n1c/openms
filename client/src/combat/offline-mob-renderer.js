@@ -1,4 +1,4 @@
-import { Text } from "pixi.js";
+import { Graphics, Text } from "pixi.js";
 import { EntityAnimation } from "../rendering/animation.js";
 import { VisualTextures } from "../rendering/visual-resources.js";
 import { entities } from "../rendering/stream-validation.js";
@@ -7,6 +7,63 @@ import { mobFlipped } from "./mob-movement-metadata.js";
 
 const MAX_PENDING_TEMPLATES = 2;
 const PREFETCH_VIEWPORTS = 0.5;
+
+/** Debug mob HP bar — mirrors sdlMS gauge_render_system layout:
+ *  fixed 50×8 outer frame, 44×4 inner fill inset by 3px on each side.
+ *  Two-layer fill: red = lerp-delayed (slow drain), green = actual hp (instant).
+ *  The gap between red and green fills gives the "slowly draining after hit" effect.
+ *  Hidden when full or dead. */
+const GAUGE_OUTER_W = 50;
+const GAUGE_OUTER_H = 8;
+const GAUGE_INSET = 3;
+const GAUGE_INNER_H = GAUGE_OUTER_H - GAUGE_INSET * 2; // 4
+const GAUGE_LERP_RATE = 0.06; // SDLMS uses 0.03 per frame; we lerp per draw call
+
+export function createMobHpBar() {
+  const bar = new Graphics();
+  bar.eventMode = "none";
+  bar.hitArea = null;
+  bar.width = GAUGE_OUTER_W;
+  bar.height = GAUGE_OUTER_H;
+  bar._percentDisplayed = 1; // lerp target; starts full
+  return bar;
+}
+
+/** Draw with sdlMS slow-drain: green = actual hp, red = lerp-delayed hp.
+ *  All rects drawn centered at x=0 so position.x=0 aligns with mob center. */
+export function drawMobHpBar(bar, hp, maxHP) {
+  bar.clear();
+  if (!maxHP || !hp || hp <= 0 || hp >= maxHP) {
+    // Full or dead — reset lerp state and hide
+    bar._percentDisplayed = hp && maxHP ? hp / maxHP : 1;
+    bar.visible = false;
+    return;
+  }
+  bar.visible = true;
+  const actual = hp / maxHP;
+  // Lerp delayed percent toward actual (sdlMS style slow drain)
+  bar._percentDisplayed = actual + (bar._percentDisplayed - actual) * (1 - GAUGE_LERP_RATE);
+  if (Math.abs(bar._percentDisplayed - actual) < 0.002) bar._percentDisplayed = actual;
+
+  const innerW = GAUGE_OUTER_W - GAUGE_INSET * 2; // 44
+  const cx = -GAUGE_OUTER_W / 2; // center the gauge at x=0 of its parent
+
+  // Outer frame
+  bar.roundRect(cx, 0, GAUGE_OUTER_W, GAUGE_OUTER_H, 1.5).fill({ color: 0x1a1a1a, alpha: 0.85 });
+  // Red delayed fill (behind) — width shrinks slowly after hit
+  const delayedW = Math.round(innerW * bar._percentDisplayed);
+  if (delayedW > 0) {
+    bar.rect(cx + GAUGE_INSET, GAUGE_INSET, delayedW, GAUGE_INNER_H).fill(0xff3333);
+  }
+  // Green actual fill (front) — instant
+  const actualW = Math.round(innerW * actual);
+  if (actualW > 0) {
+    const fillColor = actual > 0.5 ? 0x4dd24d : actual > 0.25 ? 0xffaa33 : 0xff4444;
+    bar.rect(cx + GAUGE_INSET, GAUGE_INSET, actualW, GAUGE_INNER_H).fill(fillColor);
+  }
+  // Border
+  bar.roundRect(cx, 0, GAUGE_OUTER_W, GAUGE_OUTER_H, 1.5).stroke({ color: 0x000000, width: 1 });
+}
 
 export function createMobNameLabel(name) {
   const label = new Text({
@@ -212,15 +269,25 @@ export class OfflineMobRenderer {
       const label = createMobNameLabel(mob.template.name);
       presentation.container.addChild(label);
       mob.nameLabel = label;
+      // HP bar: only show if template doesn't suppress it
+      if (!mob.template.info.HPgaugeHide) {
+        const hpBar = createMobHpBar();
+        hpBar.position.set(0, 0); // real position set in synchronizeMob
+        presentation.container.addChild(hpBar);
+        mob.hpBar = hpBar;
+      }
       this.synchronizeMob(mob);
       try {
         this.scene.addDynamicEntity(presentation);
         this.scene.registerPresentationContainer(label);
+        if (mob.hpBar) this.scene.registerPresentationContainer(mob.hpBar);
       } catch (error) {
         this.scene.unregisterPresentationContainer(label);
+        if (mob.hpBar) this.scene.unregisterPresentationContainer(mob.hpBar);
         mob.presentation = null;
         presentation.container.destroy({ children: true });
         label.destroy();
+        if (mob.hpBar) { mob.hpBar.destroy(); mob.hpBar = null; }
         mob.nameLabel = null;
         throw error;
       }
@@ -238,6 +305,17 @@ export class OfflineMobRenderer {
       !this.scene.offlineField?.hooks.skillTargetController?.()?.hidesBody(mob);
     entity.container.alpha = mob.opacity;
     this.synchronizeDepth(mob, entity);
+    // Update HP bar: position atop mob head, centered horizontally, flip reversal, animated fill
+    if (mob.hpBar) {
+      const slot = this.templates.get(mob.record.template);
+      const b = slot?.descriptor?.bounds;
+      // bounds is {left, right, top, bottom} where top<0 (head above feet anchor=0)
+      const height = b?.top ?? -30; // e.g. -40 means head is 40px above the foot anchor
+      mob.hpBar.position.set(0, height - 10);
+      // Flip reversal: container.scale.x=-1 flips the bar; undo with same scale
+      mob.hpBar.scale.x = entity.container.scale.x; // -1 × -1 = +1
+      drawMobHpBar(mob.hpBar, mob.hp, mob.maxHP);
+    }
     const once =
       !mob.alive ||
       mob.state === "spawning" ||
@@ -287,6 +365,11 @@ export class OfflineMobRenderer {
     }
     mob.nameLabel?.destroy();
     mob.nameLabel = null;
+    if (mob.hpBar) {
+      this.scene.unregisterPresentationContainer(mob.hpBar);
+      mob.hpBar.destroy();
+      mob.hpBar = null;
+    }
     this.scene.removeDynamicEntity(mob.id);
     mob.presentation.container.destroy({ children: true });
     mob.presentation = null;
