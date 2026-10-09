@@ -1,10 +1,10 @@
 /** 0067d430..0067d548: fly takes precedence, then move+jump, move, stationary.
- * The canvas/action family selects the controller; flySpeed=0 still flies. */
+ * The canvas/action family selects the controller; flySpeed=0 still flies.
+ * Pure-jump (no move) mobs are treated as stationary but retain `canJump`. */
 export function mobMovementType(actions) {
   if (actions.fly) return 3;
   if (actions.move) return actions.jump ? 2 : 1;
-  if (actions.jump) throw new Error("Original jumping mob has no move action");
-  return 0;
+  return 0; // stationary, with optional jump-only capability
 }
 
 /** 0067dc1c/006823f0 stores max(0,100+flySpeed); active abilities clamp after buffs. */
@@ -23,6 +23,7 @@ export function mobMovementMetadata(info, actions) {
     type,
     action: type === 3 ? "fly" : type > 0 ? "move" : null,
     flySpeedPercent: type === 3 ? mobFlightSpeedPercent(info) : null,
+    canJump: Boolean(actions.jump),
   };
 }
 /** noFlip locks artwork/body mirroring, not the grounded controller's heading. */

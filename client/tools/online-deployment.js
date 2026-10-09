@@ -30,7 +30,8 @@ export async function emitOnlineDeployment(root, build) {
     resources.push(await emit(site, url, bytes));
   }
   for (const output of build.outputs) {
-    const name = output.path.slice(output.path.lastIndexOf("/") + 1);
+    // const name = output.path.slice(output.path.lastIndexOf("/") + 1);
+    const name = output.path.replace(/\\/g, "/").split("/").pop();
     const bytes = new Uint8Array(await output.arrayBuffer());
     resources.push(await emit(site, `/dist/online/${name}`, bytes));
     if (name === "atlas-worker.js" || name === "audio-capture-worklet.js") {
