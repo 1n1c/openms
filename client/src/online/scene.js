@@ -23,7 +23,7 @@ import { SceneDrops } from "./scene-drops.js";
 import { SceneChairs } from "./scene-chairs.js";
 import { SceneLife } from "./scene-life.js";
 import { observeWorldCharacter } from "./native-world-actions.js";
-import { createMobNameLabel } from "../combat/offline-mob-renderer.js";
+import { createMobHpBar, createMobNameLabel, drawMobHpBar } from "../combat/offline-mob-renderer.js";
 import { weaponActionAnimationMs } from "../combat/weapon-usage.js";
 import { DropPresentationMotion } from "./drop-presentation-motion.js";
 import { RemoteAnimationClock } from "./remote-animation-clock.js";
@@ -210,6 +210,7 @@ export class OnlineScene {
         animation: owner.animation,
         entity,
         identity,
+        bounds: owner.bounds ?? null,
         // Authored receiver/info of this entity's own life template, used by local hit
         // presentation; null for entities whose artwork lives in another map.
         life: owner.life ?? null,
@@ -362,6 +363,10 @@ export class OnlineScene {
     if (entity.mobState) {
       view.animation.container.visible = entity.mobState.bodyVisible;
       if (view.mobName) view.mobName.visible = entity.mobState.nameVisible;
+      // Update HP bar fill from server-authored state
+      if (view.mobHpBar) {
+        drawMobHpBar(view.mobHpBar, entity.mobState.hp ?? 0, entity.mobState.maxHP ?? 0);
+      }
     }
     this.observeCombatExpression(view);
   }
@@ -402,6 +407,12 @@ export class OnlineScene {
       view.mobName.position.set(0, 4);
       animation.container.addChild(view.mobName);
       this.scene.registerPresentationContainer(view.mobName);
+      // Debug HP bar: always create, visibility handled by drawMobHpBar
+      view.mobHpBar = createMobHpBar();
+      const top = view.bounds?.top ?? -30; // e.g. -40 means head is 40px above foot anchor
+      view.mobHpBar.position.set(0, top - 10);
+      animation.container.addChild(view.mobHpBar);
+      this.scene.registerPresentationContainer(view.mobHpBar);
     }
     if (entity.kind === "npc" || entity.kind === "drop") {
       animation.container.eventMode = "static";
@@ -533,6 +544,7 @@ export class OnlineScene {
       original,
       resources,
       lifeTemplate(manifest, key),
+      descriptor?.bounds ?? null,
     );
   }
   async prepareDrop(entity) {
@@ -585,7 +597,7 @@ export class OnlineScene {
       throw error;
     }
   }
-  animationOwner(entity, original, resources, life = null) {
+  animationOwner(entity, original, resources, life = null, bounds = null) {
     const animation = new EntityAnimation(
       {
         ...original,
@@ -599,6 +611,7 @@ export class OnlineScene {
     return {
       animation,
       life,
+      bounds,
       destroy() {
         animation.container.destroy({ children: true });
         resources.destroy();
@@ -614,6 +627,7 @@ export class OnlineScene {
         : 1;
     if (view.name) view.name.step(this.app.renderer.resolution);
     if (view.mobName) view.mobName.scale.x = animation.container.scale.x;
+    if (view.mobHpBar) view.mobHpBar.scale.x = animation.container.scale.x;
     // A local hit reaction is presentation-only: the attacker sees the authored pose as soon
     // as it lands, and the observed action takes the mob back when it confirms or expires.
     const reaction = this.observeLocalReaction(view);
