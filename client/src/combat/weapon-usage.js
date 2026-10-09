@@ -181,10 +181,11 @@ export function projectileTargetDistance(body, origin, range, start = 0) {
   return Infinity;
 }
 
-/** Shared extraction/preparation/admission boundary; never defer malformed art until durable equip. */
+/** Shared extraction/preparation/admission boundary; never defer malformed art until durable equip.
+ *  Accepts schemaVersion 2 (basic weapon combat) and 3 (+afterimage particles per attack). */
 export function validateWeaponCombat(combat) {
   if (combat === null) return combat;
-  if (combat?.schemaVersion !== 2) {
+  if (combat?.schemaVersion !== 2 && combat?.schemaVersion !== 3) {
     throw new Error("Invalid original equipped combat metadata");
   }
   validateCombatEquipment(combat.equipment);
