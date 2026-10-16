@@ -304,8 +304,8 @@ export class OnlineScene {
         entity.mobState?.movementType === 3
           ? 270100
           : foothold
-            ? 29991 + (foothold.layer * 3000 - foothold.group) * 10
-            : 239991,
+            ? 29900 + (foothold.layer * 3000 - foothold.group) * 10
+            : 239900,
       );
       return;
     }

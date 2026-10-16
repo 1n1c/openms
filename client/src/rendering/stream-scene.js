@@ -330,16 +330,11 @@ export class StreamScene {
     this.unregisterPresentationContainer(container);
     container.removeFromParent();
   }
-  /** 0092fd16 local-user depth; update sorted ownership only when its plane changes.
-   *  Player always renders above map objects (including ladder/rope artwork) — the
-   *  1_000_000 floor exceeds every object layer's z (max ~212_000 at layer 7) while
-   *  leaving plenty of headroom for effect/projectile world containers at ~500_000.
-   *  Relative depth ordering among actors on different contact layers is preserved
-   *  by the contactLayer*3000 term added on top of the floor. */
+  /** 0092fd16 local-user depth; update sorted ownership only when its plane changes. */
   updateActorDepth() {
     const sim = this.simulation;
     // 0092fd37..46: active local controller adds five, independently of ground contact.
-    const z = 1_000_000 + (sim.contactLayer * 3000 - sim.contactGroup) * 10;
+    const z = 29997 + (sim.contactLayer * 3000 - sim.contactGroup) * 10;
     this.setEntityDepth(this.actor, z);
   }
   /** 50403a4b/50409efd: equal world z uses latest depth mutation serial, not y.
