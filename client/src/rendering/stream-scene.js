@@ -333,6 +333,14 @@ export class StreamScene {
   /** 0092fd16 local-user depth; update sorted ownership only when its plane changes. */
   updateActorDepth() {
     const sim = this.simulation;
+    // Climbing: player must render in front of ladder/rope artwork.  Ladder artwork
+    // lives at z = 2000 + layer*30000 in the catalog; climb state bumps the player up
+    // into a dedicated band above every map object layer so limbs don't disappear
+    // behind the rung graphics.
+    if (sim.state === "ladder") {
+      this.setEntityDepth(this.actor, 1_000_000);
+      return;
+    }
     // 0092fd37..46: active local controller adds five, independently of ground contact.
     const z = 29997 + (sim.contactLayer * 3000 - sim.contactGroup) * 10;
     this.setEntityDepth(this.actor, z);
