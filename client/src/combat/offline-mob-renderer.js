@@ -248,16 +248,20 @@ export class OfflineMobRenderer {
     this.synchronizeName(mob);
   }
 
-  /** 00664e35: controller3 uses its own aerial plane, not an authored floor. */
+  /** 00664e35: controller3 uses its own aerial plane, not an authored floor.
+   * Mob base z (29900) sits well below player (29997) and NPC (29995) so that
+   * on the same contact plane, player → NPC → mob layering is preserved
+   * regardless of depthOrder tie-breaking. */
   synchronizeDepth(mob, entity) {
     const foothold = mob.foothold;
-    const depth =
+    this.scene.setEntityDepth(
+      entity,
       mob.movementType === 3
         ? 270100
         : foothold
-          ? 29991 + (foothold.layer * 3000 - foothold.group) * 10
-          : 239991;
-    this.scene.setEntityDepth(entity, depth);
+          ? 29900 + (foothold.layer * 3000 - foothold.group) * 10
+          : 239900,
+    );
   }
 
   /** Nameplates counter the body's flip and obey authored suppression flags. */
