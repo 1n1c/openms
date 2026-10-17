@@ -30,7 +30,10 @@ export async function emitOnlineDeployment(root, build) {
     resources.push(await emit(site, url, bytes));
   }
   for (const output of build.outputs) {
-    const name = output.path.slice(output.path.lastIndexOf("/") + 1);
+    // Bun.build returns absolute paths with OS-native separators on Windows.
+    // Normalize backslashes to forward-slashes before extracting the basename.
+    // const name = output.path.slice(output.path.lastIndexOf("/") + 1);
+    const name = output.path.replace(/\\/g, "/").split("/").pop();
     const bytes = new Uint8Array(await output.arrayBuffer());
     resources.push(await emit(site, `/dist/online/${name}`, bytes));
     if (name === "atlas-worker.js" || name === "audio-capture-worklet.js") {
