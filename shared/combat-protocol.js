@@ -289,3 +289,18 @@ export const COMBAT_RESULT_SCHEMAS = {
     incomingId: id,
   }),
 };
+
+/** Shared player-hit presentation parameters. Server uses the authoritative
+ *  OfflineField blink algorithm; the online client must not re-implement it with
+ *  variable-elapsed render-frame arithmetic, so it imports these raw values from here. */
+export const PLAYER_HIT = Object.freeze({
+  timerMs: 1200,
+  tickMs: 30,
+  ticksPerPhase: 2,
+  alertMs: 5000,
+  horizontalImpulse: 270,
+  verticalImpulse: -270,
+  noDirection: 0x7fffffff,
+  normalTint: 0xffffff,
+  hitTint: 0x808080,
+});

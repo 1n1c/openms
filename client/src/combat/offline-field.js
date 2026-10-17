@@ -1,5 +1,6 @@
 import { createHitboxState, updateHitboxes } from "../physics/hitboxes.js";
 import { applyExternalImpulse } from "../physics/simulation.js";
+import { PLAYER_HIT } from "../../../shared/combat-protocol.js";
 import { placeBody } from "../world/life-geometry-numeric.js";
 import { OfflineMobRenderer } from "./offline-mob-renderer.js";
 import { PassiveRecovery } from "../character/passive-recovery.js";
@@ -72,17 +73,11 @@ export const COMBAT_POLICY = Object.freeze({
   respawn: REVIVAL_POLICY,
 });
 
-/** Original 009581a9 outcome / 00930b27 local-avatar update, not damage policy. */
-export const PLAYER_HIT = Object.freeze({
-  timerMs: 1500,
-  tickMs: 30,
-  alertMs: 5000, // User+56c; 0095923f, 0092edb2, Avatar004522a6.
-  horizontalImpulse: 270,
-  verticalImpulse: -270,
-  noDirection: 0x7fffffff,
-  normalTint: 0xffffff,
-  hitTint: 0x808080,
-});
+/** Original 009581a9 outcome / 00930b27 local-avatar update, not damage policy.
+ *  Values live in shared/combat-protocol.js so the online client can import them
+ *  without pulling in this offline-authority module. Re-exported here for backwards
+ *  compatibility with existing server and offline imports. */
+export { PLAYER_HIT };
 
 /** Directional merge through the shared kernel entry point. `hooks.onExternalImpulse`
  *  lets an authority publish the exact divert it applied; offline it is absent. */
@@ -197,6 +192,7 @@ export class OfflineField {
     this.alertTimerMs = 0;
     this.alertPosture = false;
     this.blinkCounter = 0;
+    this.blinkSubCounter = 0;
     this.blinkTint = PLAYER_HIT.normalTint;
     this.lastKnockback = "none";
     this.lastKnockbackRoll = -1;
@@ -1228,8 +1224,16 @@ export class OfflineField {
   applyHitPresentation(hit, impulse) {
     this.receiveHitImpulse(hit, impulse);
     this.lastDamage = hit.amount;
+    const prevTimerMs = this.hitTimerMs;
     this.hitTimerMs = hit.amount > 0 ? PLAYER_HIT.timerMs : -PLAYER_HIT.timerMs;
     if (hit.amount > 0) {
+      // Reset blink phase only when the hit window actually starts (was closed before).
+      // If the window was already open (continuous hit chain), keep the existing phase so
+      // the blink does not visually restart mid-chain, matching original 00930b27 behavior.
+      if (prevTimerMs === 0) {
+        this.blinkCounter = 0;
+        this.blinkSubCounter = 0;
+      }
       this.hooks.interruptChakra?.();
       this.scene.actor.setExpression("hit", PLAYER_HIT.timerMs);
       this.alertTimerMs = PLAYER_HIT.alertMs;
@@ -1325,8 +1329,7 @@ export class OfflineField {
     return !!source && (!source.alive || !source.active || !!source.fault);
   }
 
-  /** 00930b27 decrements before tint selection, once on the existing actor clock.
-   * The persistent blink phase is not restarted by another admitted outcome. */
+  /** 00930b27 decrements before tint selection, once on the existing actor clock. */
   advanceHitPresentation() {
     if (this.hitTimerMs > 0) {
       this.hitTimerMs = Math.max(0, this.hitTimerMs - PLAYER_HIT.tickMs);
@@ -1335,8 +1338,14 @@ export class OfflineField {
     }
     this.blinkTint = PLAYER_HIT.normalTint;
     if (!this.dead && this.hitTimerMs > 0) {
-      this.blinkCounter = (this.blinkCounter + 1) >>> 0;
-      if ((this.blinkCounter & 3) < 2) this.blinkTint = PLAYER_HIT.hitTint;
+      this.blinkSubCounter++;
+      if (this.blinkSubCounter >= PLAYER_HIT.ticksPerPhase) {
+        this.blinkSubCounter = 0;
+        this.blinkCounter = (this.blinkCounter + 1) >>> 0;
+      }
+      if ((this.blinkCounter & 1) === 0) this.blinkTint = PLAYER_HIT.hitTint;
+    } else {
+      this.blinkSubCounter = 0;
     }
   }
 
