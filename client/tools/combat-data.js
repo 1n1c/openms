@@ -1,4 +1,4 @@
-import { at, resolveNode } from "../src/assets/image.js";
+import { at, resolveNode, value } from "../src/assets/image.js";
 import { readRectangle } from "./hitbox-data.js";
 import {
   weaponType,
@@ -10,6 +10,7 @@ import {
 
 const MAX_ACTIONS = 128;
 const MAX_PROPERTIES = 32768;
+const MAX_AFTERIMAGE_FRAMES = 64;
 
 /** Preserve original scalar inputs without assigning original damage semantics. */
 function scalarFields(node) {
@@ -50,8 +51,64 @@ function standardDefense(context) {
   return rows;
 }
 
+/** Read all Afterimage canvas frames for one action on one facing.
+ *  Each numeric Property directory under the action node is a canvas group
+ *  whose NUMBER equals the WEAPON ANIMATION FRAME where this AI should spawn
+ *  (matching GM MapleCharacter.pas: IntToStr(Frame) used as group key).
+ *  Each canvas has delay (AI frame duration ms), a1 (end alpha 0-255), origin.
+ *  Returns [{spawnFrame, delay, alphaEnd, parts:[{texture,x,y,z}]}] or null. */
+async function extractAfterimageFrames(context, actionNode) {
+  // Collect canvas groups keyed by their numeric directory name (the spawnFrame!).
+  const groups = [];
+  for (const [dirName, child] of Object.entries(actionNode.children)) {
+    if (!/^\d+$/.test(dirName)) continue;
+    const resolved = resolveNode(child);
+    if (!resolved?.children) continue;
+    const canvases = [];
+    for (const [cname, cchild] of Object.entries(resolved.children)) {
+      const cresolved = resolveNode(cchild);
+      if (cresolved?.type !== "Canvas") continue;
+      canvases.push({ name: cname, node: cresolved });
+    }
+    if (canvases.length) {
+      canvases.sort((a, b) => Number(a.name) - Number(b.name));
+      groups.push({ spawnFrame: Number(dirName), canvases });
+    }
+  }
+  if (!groups.length) return null;
+  groups.sort((a, b) => a.spawnFrame - b.spawnFrame);
+
+  const frames = [];
+  for (const { spawnFrame, canvases } of groups) {
+    for (const { node: canvasNode } of canvases) {
+      if (frames.length >= MAX_AFTERIMAGE_FRAMES) {
+        throw new Error("Afterimage frame bound exceeded");
+      }
+      // context.part() returns {texture, x, y, z} where x/y ALREADY have
+      // origin subtracted (part.x = -origin.x, part.y = -origin.y).
+      // This exactly matches GM AfterImage.pas:
+      //   Offset.X := -origin.X (MirrorX=False)
+      //   Offset.Y := -origin.Y
+      const part = await context.part(canvasNode);
+      const delayRaw = value(canvasNode, "delay", null);
+      const delay = delayRaw === null ? 120 : Number(delayRaw);
+      const a1Raw = value(canvasNode, "a1", -1);
+      const a1 = Number(a1Raw);
+      // a1 = target end alpha 0-255; -1 = no fade (stay opaque).
+      const alphaEnd = a1 < 0 ? 1 : a1 / 255;
+      frames.push({
+        spawnFrame,
+        delay,
+        alphaEnd,
+        parts: [{ ...part, opacity: 1 }],
+      });
+    }
+  }
+  return frames.length ? frames : null;
+}
+
 /** One immutable descriptor per actual base weapon, never the cash overlay. */
-export function extractWeaponCombat(context, weaponId) {
+export async function extractWeaponCombat(context, weaponId) {
   const type = weaponType(weaponId);
   if (!type) return null;
   const weaponPath = `Weapon/${String(weaponId).padStart(8, "0")}.img`;
@@ -70,12 +127,33 @@ export function extractWeaponCombat(context, weaponId) {
     if (!node.children.lt || !node.children.rb) continue;
     attacks[name] = { rectangle: readRectangle(node, `${source}/0/${name}`) };
   }
+
+  // Afterimage visual frames — one list per (action, facing).
+  // Also collect unique texture parts so the caller can inject them into
+  // the weapon bundle for atlas collection.
+  const afterimageTexts = Object.create(null); // facing → Set<textureKey>
+  for (const facing of [0, 1]) {
+    let facingRoot;
+    try { facingRoot = at(context.image("Character", afterimagePath), String(facing)); } catch { continue; }
+    if (!facingRoot?.children) continue;
+    for (const [actionName, actionNode] of Object.entries(facingRoot.children)) {
+      const attack = attacks[actionName];
+      if (!attack) continue;
+      const frames = await extractAfterimageFrames(context, actionNode);
+      if (!frames?.length) continue;
+      attack.afterimage ||= Object.create(null);
+      attack.afterimage[facing] = frames;
+      afterimageTexts[facing] ||= new Set();
+      for (const f of frames) for (const p of f.parts) afterimageTexts[facing].add(p.texture);
+    }
+  }
+
   const category = equipment.attack;
   if (!MELEE_ACTIONS[category]?.length) {
     throw new Error(`Original basic attack row unavailable: ${weaponId}`);
   }
   const combat = {
-    schemaVersion: 2,
+    schemaVersion: 3, // 3 = has afterimage frames inline
     weaponId,
     weaponType: type,
     source: `Character.wz:${weaponPath}/info`,
@@ -83,9 +161,16 @@ export function extractWeaponCombat(context, weaponId) {
     attacks,
     defaultAction: MELEE_ACTIONS[category][0],
     proneAction: "proneStab",
+    // Export unique AI texture keys per facing so avatar-catalog can wire them
+    // into the weapon bundle (making them appear in atlas manifest).
+    _afterimageTexts: Object.fromEntries(
+      Object.entries(afterimageTexts).map(([k, v]) => [k, [...v]]),
+    ),
   };
   completeAttackMetadata(context, combat);
-  return validateWeaponCombat(combat);
+  const validated = validateWeaponCombat(combat);
+  validated._afterimageTexts = combat._afterimageTexts; // preserve after atlas injection
+  return validated;
 }
 
 /** Native shots use the forward ray, not a fabricated melee afterimage rectangle. */
