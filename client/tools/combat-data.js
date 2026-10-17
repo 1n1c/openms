@@ -116,35 +116,73 @@ export async function extractWeaponCombat(context, weaponId) {
     at(context.image("Character", weaponPath), "info"),
   );
   if (equipment.cash) return null;
-  const afterimagePath = `Afterimage/${equipment.afterImage}.img`;
-  const source = `Character.wz:${afterimagePath}`;
-  const root = at(context.image("Character", afterimagePath), "0");
-  const children = Object.entries(root.children);
-  if (children.length > MAX_ACTIONS) throw new Error("Weapon action limit");
-  const attacks = Object.create(null);
-  for (const [name, child] of children) {
-    const node = resolveNode(child);
-    if (!node.children.lt || !node.children.rb) continue;
-    attacks[name] = { rectangle: readRectangle(node, `${source}/0/${name}`) };
+  const source = `Character.wz:${weaponPath}/info`;
+
+  // --- Basic combat rectangles (schemaVersion 2 baseline) ---
+  // Fall back to Weapon/<id>.img/Sword/info (or PoleArm/Axe/etc.) when
+  // Afterimage/<afterImage>.img is missing or the field is 0/null.
+  let attacks = Object.create(null);
+  let schemaVersion = 2;
+  let afterimageTexts = Object.create(null); // facing → Set<textureKey>
+
+  // First try: Afterimage/<afterImage>.img — preferred location, has both
+  // rectangles AND afterimage visual frames.
+  const afterImageId = equipment.afterImage;
+  const hasAfterimageFile = afterImageId && afterImageId !== "0";
+  if (hasAfterimageFile) {
+    const afterimagePath = `Afterimage/${afterImageId}.img`;
+    try {
+      const root = at(context.image("Character", afterimagePath), "0");
+      const children = Object.entries(root.children);
+      if (children.length > MAX_ACTIONS) throw new Error("Weapon action limit");
+      for (const [name, child] of children) {
+        const node = resolveNode(child);
+        if (!node.children.lt || !node.children.rb) continue;
+        attacks[name] = { rectangle: readRectangle(node, `Character.wz:${afterimagePath}/0/${name}`) };
+      }
+
+      // Afterimage visual frames — one list per (action, facing).
+      schemaVersion = 3; // promoted: afterimage file exists
+      for (const facing of [0, 1]) {
+        let facingRoot;
+        try { facingRoot = at(context.image("Character", afterimagePath), String(facing)); } catch { continue; }
+        if (!facingRoot?.children) continue;
+        for (const [actionName, actionNode] of Object.entries(facingRoot.children)) {
+          const attack = attacks[actionName];
+          if (!attack) continue;
+          const frames = await extractAfterimageFrames(context, actionNode);
+          if (!frames?.length) continue;
+          attack.afterimage ||= Object.create(null);
+          attack.afterimage[facing] = frames;
+          afterimageTexts[facing] ||= new Set();
+          for (const f of frames) for (const p of f.parts) afterimageTexts[facing].add(p.texture);
+        }
+      }
+    } catch (afterimageErr) {
+      // Afterimage file missing or malformed — fall through to weapon-info rectangles.
+      schemaVersion = 2;
+      afterimageTexts = Object.create(null);
+    }
   }
 
-  // Afterimage visual frames — one list per (action, facing).
-  // Also collect unique texture parts so the caller can inject them into
-  // the weapon bundle for atlas collection.
-  const afterimageTexts = Object.create(null); // facing → Set<textureKey>
-  for (const facing of [0, 1]) {
-    let facingRoot;
-    try { facingRoot = at(context.image("Character", afterimagePath), String(facing)); } catch { continue; }
-    if (!facingRoot?.children) continue;
-    for (const [actionName, actionNode] of Object.entries(facingRoot.children)) {
-      const attack = attacks[actionName];
-      if (!attack) continue;
-      const frames = await extractAfterimageFrames(context, actionNode);
-      if (!frames?.length) continue;
-      attack.afterimage ||= Object.create(null);
-      attack.afterimage[facing] = frames;
-      afterimageTexts[facing] ||= new Set();
-      for (const f of frames) for (const p of f.parts) afterimageTexts[facing].add(p.texture);
+  // Second try: weapon info rectangles from Weapon/<id>.img/<weaponType>/info
+  if (Object.keys(attacks).length === 0) {
+    try {
+      const weaponRectPath = `Weapon/${String(weaponId).padStart(8, "0")}.img/${type}/info`;
+      const weaponRoot = at(context.image("Character", `Weapon/${String(weaponId).padStart(8, "0")}.img`), String(type));
+      const rectNode = resolveNode(weaponRoot);
+      if (rectNode?.children?.lt && rectNode?.children?.rb) {
+        const category = equipment.attack;
+        const meleeNames = MELEE_ACTIONS[category];
+        if (meleeNames) {
+          for (const name of meleeNames) {
+            attacks[name] = { rectangle: readRectangle(rectNode, `Character.wz:${weaponRectPath}/${name}`) };
+          }
+        }
+      }
+    } catch {
+      // Weapon-specific rectangle unavailable — skip; validateWeaponCombat
+      // will accept combat with empty attacks (schemaVersion 2).
     }
   }
 
@@ -153,7 +191,7 @@ export async function extractWeaponCombat(context, weaponId) {
     throw new Error(`Original basic attack row unavailable: ${weaponId}`);
   }
   const combat = {
-    schemaVersion: 3, // 3 = has afterimage frames inline
+    schemaVersion,
     weaponId,
     weaponType: type,
     source: `Character.wz:${weaponPath}/info`,
