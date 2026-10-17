@@ -1105,7 +1105,8 @@ export class OnlineLogin {
       view,
       plane: new UIRasterPlane(root, element),
       prepared: null,
-      pose: { action: "stand1", facing: -1, state: "ground" },
+      // pose: { action: "stand1", facing: -1, state: "ground" },
+      pose: { action: "stand1", facing: 1, state: "ground" },
       controller: null,
       generation: 0,
     };

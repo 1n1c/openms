@@ -304,8 +304,8 @@ export class OnlineScene {
         entity.mobState?.movementType === 3
           ? 270100
           : foothold
-            ? 29991 + (foothold.layer * 3000 - foothold.group) * 10
-            : 239991,
+            ? 29900 + (foothold.layer * 3000 - foothold.group) * 10
+            : 239900,
       );
       return;
     }
@@ -608,10 +608,10 @@ export class OnlineScene {
   pose(view, x, y) {
     const { entity, animation } = view;
     animation.setPosition(x, y);
+    // Climbing poses use authored back-facing art — never mirror those.
+    const climbAction = CLIMB_ACTIONS.has(entity.action);
     animation.container.scale.x =
-      entity.kind !== "drop" && (view.presentedMotion ?? entity).facing > 0
-        ? -1
-        : 1;
+      climbAction || entity.kind === "drop" || entity.facing <= 0 ? 1 : -1;
     if (view.name) view.name.step(this.app.renderer.resolution);
     if (view.mobName) view.mobName.scale.x = animation.container.scale.x;
     // A local hit reaction is presentation-only: the attacker sees the authored pose as soon

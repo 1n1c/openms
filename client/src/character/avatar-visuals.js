@@ -341,7 +341,8 @@ function preparedPreview(animation, resource) {
             ? resource.walkAction
             : simulation.action;
       if (!this.attacking) animation.setAction(poseAction);
-      animation.container.scale.x = simulation.facing > 0 ? -1 : 1;
+      const climbAction = poseAction === "ladder" || poseAction === "rope" || poseAction === "ladder2" || poseAction === "rope2";
+      animation.container.scale.x = climbAction ? 1 : (simulation.facing > 0 ? -1 : 1);
       animation.holdFrame =
         !this.attacking &&
         simulation.state === "ladder" &&
