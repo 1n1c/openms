@@ -94,6 +94,7 @@ function applyHitImpulse(simulation, hit, onExternalImpulse = null) {
     onExternalImpulse
       ? (sim, vx, vy) => onExternalImpulse(sim, vx, vy, hit)
       : null,
+    true, // preserveLadder: mob contact damage does not kick the player off a ladder
   );
 }
 

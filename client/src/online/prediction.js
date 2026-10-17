@@ -220,7 +220,7 @@ export class OnlinePrediction {
         continue;
       }
       this.queueImpulse(divert);
-      this.mergeImpulse(divert.vx, divert.vy);
+      this.mergeImpulse(divert.vx, divert.vy, divert.source === "hit");
       applied++;
     }
     this.diverts += applied;
@@ -240,10 +240,10 @@ export class OnlinePrediction {
   }
 
   /** Keep a disposable hit path aligned with additional admitted movement impulses. */
-  mergeImpulse(vx, vy) {
-    applyExternalImpulse(this.simulation, vx, vy);
+  mergeImpulse(vx, vy, preserveLadder = false) {
+    applyExternalImpulse(this.simulation, vx, vy, null, preserveLadder);
     if (this.hitPreview?.sourceId) {
-      applyExternalImpulse(this.hitPreview.simulation, vx, vy);
+      applyExternalImpulse(this.hitPreview.simulation, vx, vy, null, preserveLadder);
     }
   }
 
