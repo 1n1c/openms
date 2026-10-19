@@ -138,11 +138,10 @@ export class SceneEvents {
     // consumeImpact returns true when a local prediction already rendered digits
     // for this event (LocalHits for outgoing, LocalIncoming for incoming).
     const consumed = combat ? combat.consumeImpact(event) : false;
-    // Hard direction guard: ONLY outgoing impacts may render through this path.
-    // Incoming impacts (mob→player: cause = "mob-attack" | "contact" | "fall")
-    // must NEVER call onMobHit — that paints the yellow mob-hit glyph onto the
-    // player (exactly the "yellow number without attacking" symptom). Incoming
-    // digits are LocalIncoming's sole responsibility.
+    // Hard direction guard: ONLY outgoing impacts may render through the onMobHit
+    // path. Incoming impacts (mob→player) must NEVER call onMobHit — that paints
+    // the yellow mob-hit glyph onto the player. Incoming digits are LocalIncoming's
+    // sole responsibility.
     const incomingCause = event.cause === "mob-attack" || event.cause === "contact" || event.cause === "fall";
     if (!consumed && !incomingCause && event.damage > 0) {
       const view = this.owner.views.get(event.targetId);
@@ -159,6 +158,12 @@ export class SceneEvents {
           this.combat.onMobHit(target, event.damage, event.critical);
         }
       }
+    } else if (!consumed && incomingCause && event.targetId === this.owner.scene?.selfId && event.damage > 0) {
+      // Incoming impact with no matching local prediction — likely a client/server
+      // overlap race (mob walking: client tick N just missed overlap, server tick N+1
+      // caught it → HP deducted but no number rendered). Fall back to LocalIncoming's
+      // present path so the user sees the damage they actually took.
+      combat?.incoming?.fallbackPresent(event.damage, event.actorId);
     }
   }
   /** Phase 4 (RNG sync route A): store server-authoritative incoming damage

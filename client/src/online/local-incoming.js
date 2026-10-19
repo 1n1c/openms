@@ -101,6 +101,9 @@ export class LocalIncoming {
     if (!this.contactOverlaps(view, self)) return;
     const amount = this.roll(info, stats, null);
     if (amount === null) return;
+    // Phase 5 (contact RNG sync): report client-rolled contact damage to server
+    // so it validates range and reuses instead of rolling divergent RNG.
+    this.combat.owner?.reportContact?.(view.entity.id, amount);
     this.contactCooldownMs = HIT_EXPRESSION_MS;
     this.remember(view.entity.id, amount, "contact");
     this.present(self, amount, view, null);
@@ -318,6 +321,17 @@ export class LocalIncoming {
       2,
       events.combat.fixedNumberPlacement(view.drawX, view.drawY + geometry.y),
     );
+  }
+
+  /** Fallback: render an incoming number from a late-arriving authoritative impact
+   *  that the local prediction missed (e.g. mob walk overlap race between client
+   *  and server ticks). Same present path, minimal state mutation. */
+  fallbackPresent(amount, sourceId) {
+    if (!this.scene) return;
+    const self = this.localTarget();
+    if (!self) return;
+    if (amount <= 0) return;
+    this.present(self, amount, { entity: { id: sourceId }, drawX: self.drawX, drawY: self.drawY }, null);
   }
 
   feedback(view, source, amount, attackAction) {
