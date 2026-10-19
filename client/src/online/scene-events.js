@@ -158,7 +158,7 @@ export class SceneEvents {
           this.combat.onMobHit(target, event.damage, event.critical);
         }
       }
-    } else if (!consumed && incomingCause && event.targetId === this.owner.scene?.selfId && event.damage > 0) {
+    } else if (!consumed && incomingCause && event.targetId === this.owner.selfId && event.damage > 0) {
       // Incoming impact with no matching local prediction — likely a client/server
       // overlap race (mob walking: client tick N just missed overlap, server tick N+1
       // caught it → HP deducted but no number rendered). Fall back to LocalIncoming's
