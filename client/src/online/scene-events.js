@@ -132,28 +132,31 @@ export class SceneEvents {
       targetId: event.targetId,
       outcome: event.damage > 0 ? "hit" : "miss",
     });
-    // The attacker already drew its own number at its release frame; the authoritative event
-    // still moves HP, death and loot, so only the duplicate digits are dropped.
-    if (this.owner.localCombat?.consumeImpact(event)) return;
-    const view = this.owner.views.get(event.targetId);
-    if (!view) return;
-    this.reserveNumber();
-    if (view.entity.kind === "mob") {
-      const target = this.target(view);
-      if (event.skillId) {
-        this.combat.onSkillDamageLine(target, event.damage, event);
-      } else this.combat.onMobHit(target, event.damage, event.critical);
-    } else {
-      const animation = view.animation;
-      const geometry = animation.current.geometry[animation.frame];
-      this.combat.show(
-        event.hpDamage,
-        2,
-        this.combat.fixedNumberPlacement(
-          event.position.x,
-          event.position.y + geometry.y,
-        ),
-      );
+    const combat = this.owner.localCombat;
+    // consumeImpact returns true when a local prediction already rendered digits
+    // for this event (LocalHits for outgoing, LocalIncoming for incoming).
+    const consumed = combat ? combat.consumeImpact(event) : false;
+    // Hard direction guard: ONLY outgoing impacts may render through this path.
+    // Incoming impacts (mob→player: cause = "mob-attack" | "contact" | "fall")
+    // must NEVER call onMobHit — that paints the yellow mob-hit glyph onto the
+    // player (exactly the "yellow number without attacking" symptom). Incoming
+    // digits are LocalIncoming's sole responsibility.
+    const incomingCause = event.cause === "mob-attack" || event.cause === "contact" || event.cause === "fall";
+    if (!consumed && !incomingCause && event.damage > 0) {
+      const view = this.owner.views.get(event.targetId);
+      if (view) {
+        this.reserveNumber();
+        const target = this.target(view);
+        if (event.skillId > 0) {
+          this.combat.onSkillDamageLine(target, event.damage, {
+            line: event.line ?? 0,
+            critical: event.critical,
+            skillId: event.skillId,
+          });
+        } else {
+          this.combat.onMobHit(target, event.damage, event.critical);
+        }
+      }
     }
   }
   recovery(event) {

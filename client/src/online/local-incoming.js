@@ -98,7 +98,7 @@ export class LocalIncoming {
     const amount = this.roll(info, stats, null);
     if (amount === null) return;
     this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.remember(view.entity.id, amount);
+    this.remember(view.entity.id, amount, "contact");
     this.present(self, amount, view, null);
   }
 
@@ -170,7 +170,7 @@ export class LocalIncoming {
     const amount = this.roll(info, stats, attack);
     if (amount === null) return;
     this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.remember(view.entity.id, amount);
+    this.remember(view.entity.id, amount, attack.action);
     this.present(self, amount, view, attack.action);
   }
 
@@ -224,7 +224,7 @@ export class LocalIncoming {
     return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
   }
 
-  remember(sourceId, amount) {
+  remember(sourceId, amount, actionKey = null) {
     this.prune();
     let queue = this.pending.get(sourceId);
     if (!queue) {
@@ -232,7 +232,7 @@ export class LocalIncoming {
       this.pending.set(sourceId, queue);
     }
     if (queue.length >= MAX_PENDING) queue.shift();
-    queue.push({ at: this.now(), damage: amount });
+    queue.push({ at: this.now(), damage: amount, actionKey });
   }
 
   /** Draw the predicted digit over the local player at the frame the swing lands, and start
@@ -256,7 +256,13 @@ export class LocalIncoming {
 
   feedback(view, source, amount, attackAction) {
     this.hitRemainingMs = HIT_EXPRESSION_MS;
-    this.motion?.begin(source.entity.id, view.drawX >= source.drawX ? 1 : -1);
+    // Client-authoritative: knockback for incoming attacks comes ONLY from the server's
+    // motionDivert → applyDiverts → mergeImpulse path. LocalHitMotion creates an
+    // independent hitPreview simulation that step()s for N frames, its position diverges
+    // from the server's authoritative path, and the subsequent reject/confirm either
+    // causes a visible position jump OR triggers server motion.fault (kick). Disabling
+    // local prediction here eliminates the divergence entirely.
+    // this.motion?.begin(source.entity.id, view.drawX >= source.drawX ? 1 : -1);
     this.combat.owner.audio?.onPlayerHit(
       {
         amount,
@@ -283,25 +289,28 @@ export class LocalIncoming {
     return true;
   }
 
-  /** True when one local prediction already presented this authoritative incoming event. */
+  /** True when one local prediction already presented this authoritative incoming event.
+   *  Phase 2 (root cause C): prefer exact actionKey match over blind FIFO so that
+   *  consecutive same-mob attacks cannot cross-consume each other's predictions.
+   *  Falls back to FIFO when no actionKey matches, for contact-damage entries
+   *  (actionKey = "contact" vs server attackAction = null) and legacy entries. */
   consume(event) {
     if (event.cause !== "mob-attack" && event.cause !== "contact") return false;
     if (event.targetId !== this.combat.scene?.selfId) return false;
-    // Any admitted incoming outcome, including a miss, starts the shared hit window.
     const queue = this.pending.get(event.actorId);
     if (!queue?.length) {
       this.contactCooldownMs = HIT_EXPRESSION_MS;
       return false;
     }
-    const prediction = queue.shift();
+    const wantKey = event.attackAction ?? "contact";
+    let index = queue.findIndex((p) => p.actionKey === wantKey);
+    if (index < 0) index = 0; // fallback FIFO head
+    const prediction = queue.splice(index, 1)[0];
     if (!queue.length) this.pending.delete(event.actorId);
     if (event.damage <= 0 || event.knockback === false) {
       this.motion?.reject(event.actorId);
     }
-    return (
-      this.now() - prediction.at <= PREDICTION_TTL_MS &&
-      event.damage > 0 === prediction.damage > 0
-    );
+    return this.now() - prediction.at <= PREDICTION_TTL_MS;
   }
 
   prune() {

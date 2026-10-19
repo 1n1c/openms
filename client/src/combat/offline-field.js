@@ -961,6 +961,10 @@ export class OfflineField {
   }
 
   contactDamage() {
+    // Root cause D: hitTimerMs must be established before any contact loop runs.
+    // Without this guard, multiple mobs could each admit one hit in the same tick
+    // because rejectsHit returns false before hitTimerMs has been set.
+    if (this.hitTimerMs !== 0) return;
     for (const mob of this.mobs) {
       if (
         mob.template.info.notAttack !== 1 &&
@@ -1311,9 +1315,11 @@ export class OfflineField {
 
   rejectsHit(hit) {
     if (this.destroyed) return true;
-    if (hit.locallyInitiated && (this.hitTimerMs !== 0 || this.dead)) {
-      return true;
-    }
+    // Incoming hits (mob → player) also share the hit protection timer.
+    // Without this, two body-attack mobs overlapping the player on the same frame
+    // both produce incoming damage numbers/sounds because the per-frame loop
+    // never short-circuits — each mob independently clears admission checks.
+    if (this.hitTimerMs !== 0 || this.dead) return true;
     const source = hit.source;
     if (
       source &&
