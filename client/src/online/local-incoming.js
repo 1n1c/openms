@@ -398,7 +398,6 @@ export class LocalIncoming {
         this.fallbackRendered.delete(event.actorId);
         return true;
       }
-      this.contactCooldownMs = HIT_EXPRESSION_MS;
       return false;
     }
     const wantKey = event.attackAction ?? "contact";
