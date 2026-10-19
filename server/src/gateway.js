@@ -381,6 +381,8 @@ export class GameplayGateway {
         return this.input(socket, message);
       case "combat.hits":
         return this.world.recordHits(socket.data.actor, message);
+      case "combat.contact":
+        return this.world.recordContact(socket.data.actor, message);
       case "command":
         return this.command(socket, message);
       case "ready":

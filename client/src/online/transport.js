@@ -1137,6 +1137,26 @@ export class OnlineTransport {
     });
   }
 
+  /** Phase 5 (contact RNG sync): report client-local contact damage to the
+   *  server so it can validate and reuse the value instead of rolling its own RNG.
+   *  Only bodyAttack contact (no authored swing) uses this; mob authored swings
+   *  already have Phase 4 pre-broadcast. */
+  reportContact(mobId, damage) {
+    if (
+      this.status !== "active" ||
+      !Number.isSafeInteger(mobId) ||
+      !Number.isSafeInteger(damage) ||
+      damage < 0
+    ) {
+      return null;
+    }
+    return this.send("combat.contact", {
+      fieldEpoch: this.expectedFieldEpoch,
+      mobId,
+      damage,
+    });
+  }
+
   command(action, expectedRevision) {
     if (this.status !== "active") return Promise.reject(failure("NOT_ACTIVE"));
     if (this.pending.size >= MAX_PENDING) {

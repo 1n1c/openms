@@ -288,27 +288,19 @@ export class LocalHits {
     return true;
   }
 
-  /** Draw the local number and start the local hit reaction. */
+  /** Local prediction for reaction, recoil and sound only.
+   *  Phase 3 (root cause E): we intentionally do NOT render damage numbers here.
+   *  The client's local select picks ALL mobs in the authored rectangle, but the
+   *  server may confirm fewer targets (lag compensation, rewind, etc.). Rendering
+   *  numbers here would leave fake digits on unconfirmed targets for ~1-2 seconds
+   *  until the animation naturally expires. Numbers now flow from the authoritative
+   *  combat.impact event in scene-events.damage(). */
   present(record, view, rolls) {
     if (record.rejected) return;
     const scene = this.combat.scene;
     // A mob that died while a ray was in flight must not receive a corpse number.
     if (!view.entity.mobState?.hp) return;
     if (!scene?.views.has(view.entity.id)) return;
-    const target = scene.events.target(view);
-    if (record.skillId) {
-      for (let line = 0; line < rolls.length; line++) {
-        if (!this.reserve()) return;
-        scene.events.combat.onSkillDamageLine(target, rolls[line].amount, {
-          line,
-          critical: rolls[line].critical,
-          skillId: record.skillId,
-        });
-      }
-    } else {
-      if (!this.reserve()) return;
-      scene.events.combat.onMobHit(target, rolls[0].amount, rolls[0].critical);
-    }
     this.react(view, rolls[0].amount);
     this.recoil(view, rolls[0].amount, record.hitFacing ?? 1);
     this.playSound(view, rolls[0].amount);
@@ -444,17 +436,21 @@ export class LocalHits {
     return view.animation.actions.has(REACTION_ACTION) ? REACTION_ACTION : null;
   }
 
-  /** True when one local prediction already presented this authoritative event. */
+  /** Outgoing impacts: always perform side effects (recoil.confirmed, pending splice)
+   *  but return FALSE so scene-events.damage() renders the authoritative number.
+   *  Phase 3 (root cause E): LocalHits no longer renders its own numbers in present(),
+   *  so there is nothing to skip on the authority path. Incoming impacts are still
+   *  covered by LocalIncoming's own local prediction, which returns true from consume. */
   consume(event) {
     if (event.actorId !== this.combat.scene?.selfId) return false;
     const prediction = this.takePrediction(event);
-    if (!prediction || this.now() - prediction.at > PREDICTION_TTL_MS) {
-      return false;
-    }
-    // The authority confirmed the hit, so the predicted recoil is no longer provisional.
+    if (!prediction) return false;
+    // Side effects only: mark local knockback as confirmed by authority
     const view = this.combat.scene?.views?.get(event.targetId);
     if (view?.recoil && event.damage > 0) view.recoil.confirmed = true;
-    return event.damage > 0 === prediction.damage > 0;
+    // Intentionally return false: present() no longer renders numbers, so the
+    // authoritative scene-events.damage() must render the digit for us.
+    return false;
   }
 
   takePrediction(event) {
