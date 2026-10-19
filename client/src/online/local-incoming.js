@@ -40,12 +40,12 @@ export class LocalIncoming {
     this.contactCooldownMs = 0;
     this.hitRemainingMs = 0;
     this.presentedAt = null;
-    // Per-source lock for the impact-arrives-first race: when fallbackPresent
-    // renders an incoming number before the local observe frame fires, record
-    // which mob was just drawn. resolveContact/resolve check this map and skip
-    // re-presenting the same hit. Window is short (250ms) — only needs to cover
-    // the same-frame race, not the full HIT_EXPRESSION_MS cooldown.
-    this.recentlyFallback = new Map();
+    // When fallbackPresent renders an incoming number (impact-arrives-first race),
+    // record the mobId here so the subsequent consumeImpact knows to skip the
+    // fallback path — the number is already drawn. This is separate from `pending`
+    // because pending tracks *local prediction* entries that impact confirms.
+    // fallbackPresent entries are impact-driven — they ARE the confirmation.
+    this.fallbackRendered = new Set();
   }
 
   bind() {
@@ -101,9 +101,6 @@ export class LocalIncoming {
   resolveContact(view) {
     const info = view.life?.info;
     if (!this.contactEligible(info)) return;
-    // Anti-duplicate: if fallbackPresent already rendered this mob's impact
-    // before the local observe frame fired (impact-arrives-first race), skip.
-    if (this.isFallbackLocked(view.entity.id)) return;
     const self = this.localTarget();
     const stats = this.combat.owner.state?.presentation.stats;
     if (!self || !stats) return;
@@ -116,16 +113,6 @@ export class LocalIncoming {
     this.contactCooldownMs = HIT_EXPRESSION_MS;
     this.remember(view.entity.id, amount, "contact");
     this.present(self, amount, view, null);
-  }
-
-  /** True when fallbackPresent already drew a number for this mob within the
-   *  short anti-race window (250ms). Also prunes expired entries as a side effect. */
-  isFallbackLocked(sourceId) {
-    const now = this.now();
-    for (const [id, t] of this.recentlyFallback) {
-      if (now - t > 250) this.recentlyFallback.delete(id);
-    }
-    return this.recentlyFallback.has(sourceId);
   }
 
   contactEligible(info) {
@@ -228,8 +215,6 @@ export class LocalIncoming {
 
   resolve(view, attack) {
     if (this.contactCooldownMs > 0) return;
-    // Anti-duplicate: if fallbackPresent already handled this mob's impact.
-    if (this.isFallbackLocked(view.entity.id)) return;
     const self = this.localTarget();
     const info = view.life?.info;
     const stats = this.combat.owner.state?.presentation.stats;
@@ -346,16 +331,17 @@ export class LocalIncoming {
 
   /** Fallback: render an incoming number from a late-arriving authoritative impact
    *  that the local prediction missed (e.g. mob walk overlap race between client
-   *  and server ticks). Also locks the contact cooldown and the fallback race
-   *  window so a subsequent local observe frame doesn't present the same hit again. */
+   *  and server ticks). Does NOT write to pending — that queue is for local
+   *  predictions that impact confirms; fallbackPresent IS the confirmation.
+   *  Instead records in fallbackRendered so a subsequent impact for the same mob
+   *  skips re-rendering. */
   fallbackPresent(amount, sourceId) {
     if (!this.scene) return;
     const self = this.localTarget();
     if (!self) return;
     if (amount <= 0) return;
     this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.recentlyFallback.set(sourceId, this.now());
-    this.remember(sourceId, amount, "contact");
+    this.fallbackRendered.add(sourceId);
     this.present(self, amount, { entity: { id: sourceId }, drawX: self.drawX, drawY: self.drawY }, null);
   }
 
@@ -398,12 +384,20 @@ export class LocalIncoming {
    *  Phase 2 (root cause C): prefer exact actionKey match over blind FIFO so that
    *  consecutive same-mob attacks cannot cross-consume each other's predictions.
    *  Falls back to FIFO when no actionKey matches, for contact-damage entries
-   *  (actionKey = "contact" vs server attackAction = null) and legacy entries. */
+   *  (actionKey = "contact" vs server attackAction = null) and legacy entries.
+   *
+   *  When queue is empty also checks fallbackRendered — that Set tracks impacts
+   *  that fallbackPresent already drew, so scene-events doesn't double-render. */
   consume(event) {
     if (event.cause !== "mob-attack" && event.cause !== "contact") return false;
     if (event.targetId !== this.combat.scene?.selfId) return false;
     const queue = this.pending.get(event.actorId);
     if (!queue?.length) {
+      // No local prediction — did fallbackPresent already handle this impact?
+      if (this.fallbackRendered.has(event.actorId)) {
+        this.fallbackRendered.delete(event.actorId);
+        return true;
+      }
       this.contactCooldownMs = HIT_EXPRESSION_MS;
       return false;
     }
