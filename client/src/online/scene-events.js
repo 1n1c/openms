@@ -48,6 +48,8 @@ export class SceneEvents {
       if (view) this.combat.onMagnetResult(this.target(view), event.success);
     } else if (event.kind === "chat" && event.channel === "map") {
       await this.chat(event);
+    } else if (event.kind === "combat.incoming-preview") {
+      this.incomingPreview(event);
     }
   }
 
@@ -158,6 +160,14 @@ export class SceneEvents {
         }
       }
     }
+  }
+  /** Phase 4 (RNG sync route A): store server-authoritative incoming damage
+   *  previews so LocalIncoming can render using the server's RNG roll instead
+   *  of its own divergent local roll. */
+  incomingPreview(event) {
+    const incoming = this.owner.localCombat?.incoming;
+    if (!incoming) return;
+    incoming.ingestPreview(event.mobId, event.attackAction, event.previews);
   }
   recovery(event) {
     if (event.hp <= 0) return;

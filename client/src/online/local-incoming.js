@@ -33,6 +33,10 @@ export class LocalIncoming {
     this.clocks = new Map();
     this.armed = new Set();
     this.pending = new Map();
+    // Phase 4 (RNG sync route A): server-authoritative pre-computed incoming
+    // damages, keyed by mobId → actionKey → {damage, critical, admitted}.
+    // resolve() consumes entries here before falling back to local RNG roll.
+    this.previewed = new Map();
     this.contactCooldownMs = 0;
     this.hitRemainingMs = 0;
     this.presentedAt = null;
@@ -160,6 +164,46 @@ export class LocalIncoming {
     return true;
   }
 
+  /** Phase 4 (RNG sync route A): absorb the server's authoritative pre-roll
+   *  incoming damage for a mob's authored swing. resolve() will consume these
+   *  entries before falling back to its own local RNG, eliminating the
+   *  "client rolled crit but server rolled non-crit" divergence. */
+  ingestPreview(mobId, attackAction, previews) {
+    const actionKey = attackAction ?? "contact";
+    let bucket = this.previewed.get(mobId);
+    if (!bucket) {
+      bucket = new Map();
+      this.previewed.set(mobId, bucket);
+    }
+    bucket.set(actionKey, { previews, at: this.now() });
+    // Cap the previewed map to the last 8 mobs (memory guard).
+    if (this.previewed.size > 8) {
+      const firstKey = this.previewed.keys().next().value;
+      this.previewed.delete(firstKey);
+    }
+  }
+
+  /** Consume the server preview for (mobId, actionKey) if one exists.
+   *  Returns { damage, admitted } or null if no preview available. */
+  consumePreview(mobId, actionKey, selfId) {
+    const bucket = this.previewed.get(mobId);
+    if (!bucket) return null;
+    const actionKeyFinal = actionKey ?? "contact";
+    const entry = bucket.get(actionKeyFinal);
+    if (!entry) return null;
+    // Expire previews older than PREDICTION_TTL_MS — same window as pending.
+    if (this.now() - entry.at > PREDICTION_TTL_MS) {
+      bucket.delete(actionKeyFinal);
+      return null;
+    }
+    // Find the preview that targets this local player.
+    const hit = entry.previews.find((p) => p.targetId === selfId);
+    bucket.delete(actionKeyFinal);
+    if (!bucket.size) this.previewed.delete(mobId);
+    if (!hit) return null;
+    return { damage: hit.damage, admitted: hit.admitted };
+  }
+
   resolve(view, attack) {
     if (this.contactCooldownMs > 0) return;
     const self = this.localTarget();
@@ -167,11 +211,26 @@ export class LocalIncoming {
     const stats = this.combat.owner.state?.presentation.stats;
     if (!self || !info || !stats) return;
     if (!this.overlapsPlayer(view, attack, self, info)) return;
-    const amount = this.roll(info, stats, attack);
-    if (amount === null) return;
+
+    // Phase 4 (RNG sync route A): prefer server's authoritative pre-rolled
+    // damage over local Math.random(). This is the core fix for "client rolled
+    // crit but server rolled non-crit" divergence. Contact damage (action=null
+    // from bodyAttack mobs) has no server preview — fall through to local roll.
+    let amount;
+    const preview = attack?.action
+      ? this.consumePreview(view.entity.id, attack.action, this.scene?.selfId)
+      : null;
+    if (preview) {
+      if (!preview.admitted) return; // server says miss/dodge — skip render
+      amount = preview.damage;
+    } else {
+      amount = this.roll(info, stats, attack);
+      if (amount === null) return;
+    }
+
     this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.remember(view.entity.id, amount, attack.action);
-    this.present(self, amount, view, attack.action);
+    this.remember(view.entity.id, amount, attack?.action ?? "contact");
+    this.present(self, amount, view, attack?.action ?? null);
   }
 
   localTarget() {

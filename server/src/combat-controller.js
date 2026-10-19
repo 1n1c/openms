@@ -230,14 +230,18 @@ export class AuthorityCombat extends OfflineField {
     return true;
   }
 
-  /** One authored proposal per shared mob plus the current fall/contact head. */
-  acceptIncoming(source, magic, action, release = null) {
+  /** One authored proposal per shared mob plus the current fall/contact head.
+   *  When preComputedOutcome is provided (Phase 4 RNG sync route A), it is used
+   *  directly as the prepared outcome — one RNG roll = one truth, no re-roll. */
+  acceptIncoming(source, magic, action, release = null, preComputedOutcome = null) {
     if (this.incoming.length >= this.mobs.length + 1) {
       throw protocolError("SERVER_BUSY");
     }
-    const prepared = hasMobStatus(source, "inert")
-      ? this.prepareHypnotizedImpact(source, action)
-      : null;
+    const prepared = preComputedOutcome
+      ? preComputedOutcome
+      : hasMobStatus(source, "inert")
+        ? this.prepareHypnotizedImpact(source, action)
+        : null;
     this.incoming.push({
       source,
       magic,
