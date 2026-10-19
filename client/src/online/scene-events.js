@@ -135,15 +135,19 @@ export class SceneEvents {
       outcome: event.damage > 0 ? "hit" : "miss",
     });
     const combat = this.owner.localCombat;
-    // consumeImpact returns true when a local prediction already rendered digits
-    // for this event (LocalHits for outgoing, LocalIncoming for incoming).
+    // consumeImpact returns true when a local prediction already rendered feedback.
+    // For outgoing (player→mob): Phase 3 moved digit rendering fully to the authority path,
+    // so we ALWAYS render the authoritative number — consumed is irrelevant here.
+    // For incoming (mob→player): LocalIncoming.present() renders its own digits, so consumed=true
+    // means we skip the fallbackPresent (number already drawn locally).
     const consumed = combat ? combat.consumeImpact(event) : false;
     // Hard direction guard: ONLY outgoing impacts may render through the onMobHit
     // path. Incoming impacts (mob→player) must NEVER call onMobHit — that paints
     // the yellow mob-hit glyph onto the player. Incoming digits are LocalIncoming's
     // sole responsibility.
     const incomingCause = event.cause === "mob-attack" || event.cause === "contact" || event.cause === "fall";
-    if (!consumed && !incomingCause && event.damage > 0) {
+    if (!incomingCause && event.damage > 0) {
+      // Outgoing: ALWAYS render authoritative digit (Phase 3). LocalHits no longer paints numbers.
       const view = this.owner.views.get(event.targetId);
       if (view) {
         this.reserveNumber();
@@ -158,11 +162,12 @@ export class SceneEvents {
           this.combat.onMobHit(target, event.damage, event.critical);
         }
       }
-    } else if (!consumed && incomingCause && event.targetId === this.owner.selfId && event.damage > 0) {
+    } else if (!consumed && incomingCause && event.targetId === this.owner.selfId) {
       // Incoming impact with no matching local prediction — likely a client/server
       // overlap race (mob walking: client tick N just missed overlap, server tick N+1
       // caught it → HP deducted but no number rendered). Fall back to LocalIncoming's
       // present path so the user sees the damage they actually took.
+      // amount=0 (MISS) also falls through here — show blue MISS glyph, no hit face.
       combat?.incoming?.fallbackPresent(event.damage, event.actorId);
     }
   }

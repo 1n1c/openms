@@ -96,23 +96,17 @@ export class LocalIncoming {
     this.resolve(view, attack);
   }
 
-  /** `009581a9`/`bodyAttack`: the defender resolves a contact hit on the frame it touches
-   *  the mob, instead of one round trip after the authority's own `contactDamage` tick. */
+  /** BodyAttack contact is fully server-authoritative. The client no longer rolls
+   *  RNG locally for contact damage — the server's own contactDamage tick produces
+   *  the single truth for HIT/MISS, knockback, and blink. This eliminates the
+   *  Phase 5 reportContact race that caused "client MISS + server hit" RNG split,
+   *  which manifested as MISS float + knockback + blink mismatch.
+   *
+   *  Server impact path:
+   *    hit (amount>0) → scene-events.damage → fallbackPresent → float + blink ✓
+   *    MISS (amount=0) → scene-events.damage → amount guard skips → nothing renders ✓ */
   resolveContact(view) {
-    const info = view.life?.info;
-    if (!this.contactEligible(info)) return;
-    const self = this.localTarget();
-    const stats = this.combat.owner.state?.presentation.stats;
-    if (!self || !stats) return;
-    if (!this.contactOverlaps(view, self)) return;
-    const amount = this.roll(info, stats, null);
-    if (amount === null) return;
-    // Phase 5 (contact RNG sync): report client-rolled contact damage to server
-    // so it validates range and reuses instead of rolling divergent RNG.
-    this.combat.owner?.reportContact?.(view.entity.id, amount);
-    this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.remember(view.entity.id, amount, "contact");
-    this.present(self, amount, view, null);
+    // Intentionally empty. Contact damage is driven by server impact events only.
   }
 
   contactEligible(info) {
@@ -337,11 +331,15 @@ export class LocalIncoming {
    *  skips re-rendering. */
   fallbackPresent(amount, sourceId) {
     if (!this.scene) return;
-    const self = this.localTarget();
-    if (!self) return;
-    if (amount <= 0) return;
+    // Raw self-view lookup — skip localTarget's protectionMs guard. This path
+    // is driven by an authoritative server impact event that has ALREADY been
+    // admitted, so the invulnerability window does not apply here. (The guard
+    // exists for client-side local roll paths that run BEFORE any server hit.)
+    const self = this.scene.views.get(this.scene.selfId);
+    if (!self || self.entity.combatState?.phase === "dead") return;
+    // amount <= 0 (MISS) also renders: present() skips hit face + feedback (blink)
+    // for amount<=0 but still calls events.combat.show(0) → blue "MISS" glyph.
     this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.fallbackRendered.add(sourceId);
     this.present(self, amount, { entity: { id: sourceId }, drawX: self.drawX, drawY: self.drawY }, null);
   }
 
@@ -393,11 +391,13 @@ export class LocalIncoming {
     if (event.targetId !== this.combat.scene?.selfId) return false;
     const queue = this.pending.get(event.actorId);
     if (!queue?.length) {
-      // No local prediction — did fallbackPresent already handle this impact?
-      if (this.fallbackRendered.has(event.actorId)) {
-        this.fallbackRendered.delete(event.actorId);
-        return true;
-      }
+      // Server-authoritative contact: resolveContact() is intentionally empty,
+      // so no pending entry exists for bodyAttack impacts. Always return false
+      // to let scene-events.damage() call fallbackPresent() for each authoritative
+      // impact — this handles both first-impact races (state synced before event)
+      // and consecutive impacts on the same mob (MISS→HIT, HIT→HIT).
+      // Local authored attack impacts (mob-attack action != null) DO write pending
+      // via resolve() → remember(), so those still match below.
       return false;
     }
     const wantKey = event.attackAction ?? "contact";

@@ -1137,13 +1137,17 @@ export class OnlineUI {
     return this.transport.reportContact(mobId, damage);
   }
   impactAudio(event) {
-    // Client-authoritative: outgoing sounds (player→mob) are always rendered locally
-    // by LocalHits.present(). Incoming sounds (mob→player) are rendered locally by
-    // LocalIncoming.present(). The authoritative impact event should never replay audio
-    // for either direction — consumeImpact handles the incoming case, and outgoing
-    // should always be skipped regardless (no local prediction needed).
-    const isOutgoing = event.actorId === this.scene?.selfId;
-    const skipAuthority = isOutgoing || this.localCombat.consumeImpact(event);
+    // consumeImpact returns true when a local prediction (LocalHits for outgoing,
+    // LocalIncoming for incoming) already rendered feedback. When true → skip the
+    // authoritative replay to avoid double-sound. When false → the authoritative
+    // impact becomes the fallback source of audio.
+    // Previously `skipAuthority = isOutgoing || consumed` but LocalHits.select() can
+    // miss the mob at input time (render-layer pose vs authoritative pose race) →
+    // resolved.length=0 → no local sound → server sound also skipped → silent hit.
+    // The `isOutgoing` guard was always wrong — consumeImpact already answers the
+    // right question: did the client already render this?
+    const consumed = this.localCombat.consumeImpact(event);
+    const skipAuthority = consumed;
     const target = this.entities.find((entry) => entry.id === event.targetId);
     if (target?.kind === "mob" && event.damage > 0) {
       if (skipAuthority) return; // client already played onMobHit locally

@@ -55,7 +55,6 @@ export class LocalHits {
       actionWeapon(this.avatarCombat(), record.action),
     );
     const spec = record.spec;
-    // Charge releases carry a charge-scaled circle the browser cannot reproduce.
     if (spec?.kind === "charge") return;
     const ray = Boolean(record.projectile);
     if (!ray && !rectangle) return;
@@ -303,11 +302,22 @@ export class LocalHits {
     if (!scene?.views.has(view.entity.id)) return;
     this.react(view, rolls[0].amount);
     this.recoil(view, rolls[0].amount, record.hitFacing ?? 1);
-    this.playSound(view, rolls[0].amount);
+    this.playSound(view, rolls[0].amount, record);
   }
 
-  playSound(view, amount) {
+  playSound(view, amount, record) {
     if (amount > 0) {
+      // Mark ALL pending entries from this record for this targetId. One present()
+      // call = one local sound regardless of how many damage lines the skill has.
+      // takePrediction splices entries one at a time by line+skillId, so EVERY entry
+      // matching this record must have soundPlayed=true to avoid N audio replays from
+      // N incoming authoritative impact events.
+      const queue = this.pending.get(view.entity.id);
+      if (queue?.length) {
+        for (const entry of queue) {
+          if (entry.record === record) entry.soundPlayed = true;
+        }
+      }
       this.combat.owner.audio?.onMobHit?.(
         {
           x: view.drawX,
@@ -436,21 +446,24 @@ export class LocalHits {
     return view.animation.actions.has(REACTION_ACTION) ? REACTION_ACTION : null;
   }
 
-  /** Outgoing impacts: always perform side effects (recoil.confirmed, pending splice)
-   *  but return FALSE so scene-events.damage() renders the authoritative number.
-   *  Phase 3 (root cause E): LocalHits no longer renders its own numbers in present(),
-   *  so there is nothing to skip on the authority path. Incoming impacts are still
-   *  covered by LocalIncoming's own local prediction, which returns true from consume. */
+  /** Outgoing impacts: take the matching local prediction (side effects: recoil.confirmed,
+   *  pending splice) and return whether present() actually executed playSound(). This bridges
+   *  the predictive LocalHits path and the authoritative impactAudio path: when playSound ran,
+   *  consume returns true so the authority audio skips (no double-sound). When playSound was
+   *  skipped (select missed the mob, mob dead, view not in scene, amount<=0) consume returns
+   *  false so the authority audio becomes the fallback source.
+   *  NOTE: scene-events.damage() no longer uses the consumed flag for outgoing number rendering —
+   *  Phase 3 moved outgoing digits entirely to the authoritative path. Only impactAudio needs
+   *  this soundPlayed signal. */
   consume(event) {
     if (event.actorId !== this.combat.scene?.selfId) return false;
     const prediction = this.takePrediction(event);
     if (!prediction) return false;
-    // Side effects only: mark local knockback as confirmed by authority
+    // Side effect: mark local knockback as confirmed by authority
     const view = this.combat.scene?.views?.get(event.targetId);
     if (view?.recoil && event.damage > 0) view.recoil.confirmed = true;
-    // Intentionally return false: present() no longer renders numbers, so the
-    // authoritative scene-events.damage() must render the digit for us.
-    return false;
+    // Return whether playSound actually ran for this prediction.
+    return Boolean(prediction.soundPlayed);
   }
 
   takePrediction(event) {
