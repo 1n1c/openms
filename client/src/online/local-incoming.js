@@ -226,6 +226,13 @@ export class LocalIncoming {
     } else {
       amount = this.roll(info, stats, attack);
       if (amount === null) return;
+      // Phase 5 (contact RNG sync): for bodyAttack contact (attack=null), the
+      // client rolled this damage locally. Report it to the server so the server
+      // validates it's within [min, max] and reuses it instead of rolling its own
+      // RNG — one roll = one truth, no contact RNG split.
+      if (!attack?.action) {
+        this.combat.owner?.reportContact?.(view.entity.id, amount);
+      }
     }
 
     this.contactCooldownMs = HIT_EXPRESSION_MS;

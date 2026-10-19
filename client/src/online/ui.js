@@ -1131,6 +1131,11 @@ export class OnlineUI {
   reportHits(report) {
     return this.transport.reportHits(report);
   }
+  /** Phase 5 (contact RNG sync): proxy for LocalIncoming to send client-rolled
+   *  contact damage so the server can validate and reuse it (no RNG split). */
+  reportContact(mobId, damage) {
+    return this.transport.reportContact(mobId, damage);
+  }
   impactAudio(event) {
     // Client-authoritative: outgoing sounds (player→mob) are always rendered locally
     // by LocalHits.present(). Incoming sounds (mob→player) are rendered locally by

@@ -1109,6 +1109,26 @@ export class OfflineField {
   }
 
   admitIncomingHit(hit, mob, magic, outcome = null) {
+    // Phase 5 (contact RNG sync): if the server has a cached client-reported
+    // contact damage for this mob, skip the local RNG roll entirely and use it
+    // directly. One roll = one truth, no contact divergence. Only bodyAttack
+    // (attackAction === null) uses this path; authored swings already have
+    // Phase 4 pre-broadcast coverage.
+    if (hit.attackAction === null) {
+      const cached = this.hooks.checkContactReport?.(mob.id);
+      if (cached !== undefined && cached !== null) {
+        hit.amount = cached;
+        // Still run skillDefenses.reduce for absorption/item defense — those are
+        // deterministic modifiers, not RNG-dependent.
+        const context = this.defenseContext;
+        context.magic = magic;
+        context.contact = true;
+        context.outcome = outcome;
+        hit.amount = this.skillDefenses.reduce(hit.amount, mob, context);
+        context.outcome = null;
+        return true;
+      }
+    }
     const info = mob.skillStatus.projected;
     if (
       !this.prepareIncomingOptions(
