@@ -136,6 +136,17 @@ export class EntityAnimation {
     this.action = name;
     this.playback = playback;
     this.current = next;
+    // Cache frame-0 origin.x to normalize all frames against it — but ONLY for
+    // single-part entities (mob/npc). Characters have MULTI-PART frames where
+    // each part (head, body, weapon, ...) carries its own independent origin.x
+    // that encodes the part's anatomical offset. Pinning all parts to frame-0's
+    // first-part origin would collapse them into a single column.
+    // Non-character entities always carry exactly one part per frame, so origin
+    // variance is purely per-frame anchor jitter (WZ Mob.wz per-frame origin.x
+    // varies by 1-5px), not part layout — the classic walk wrap-around stutter.
+    this._actionFrame0OriginX = this.kind !== "character"
+      ? (this.current?.parts?.[0]?.[0]?.x ?? 0)
+      : null;
     this.actionTimeMs = 0;
     this.elapsedMs = 0;
     this.completed = playback === "once" && next.duration === 0;
@@ -227,6 +238,7 @@ export class EntityAnimation {
     this.frame = index;
     this.applyPoseTransform(this.current.frames[index]);
     const parts = this.current.parts[index];
+    const frame0X = this._actionFrame0OriginX;
     for (let i = 0; i < this.sprites.length; i++) {
       const sprite = this.sprites[i];
       const part = parts[i];
@@ -235,7 +247,11 @@ export class EntityAnimation {
       const texture = this.textures.get(part.texture);
       sprite.tint = this.tint;
       sprite.texture = texture;
-      sprite.position.set(part.x + (part.flip ? texture.width : 0), part.y);
+      // Single-part entities (mob/npc) pin all frames to frame-0's origin.x
+      // to eliminate wrap-around stutter. Multi-part entities (character) keep
+      // each part's authored origin.x — it encodes anatomical offsets.
+      const x = frame0X !== null ? frame0X : part.x;
+      sprite.position.set(x + (part.flip ? texture.width : 0), part.y);
       sprite.scale.set(part.flip ? -1 : 1, 1);
       sprite.alpha = part.opacity ?? 1;
     }
@@ -442,6 +458,7 @@ export class EntityAnimation {
   drawBackgroundCopy(index, x, y) {
     const parts = this.current.parts[this.frame],
       layout = this.backgroundLayout;
+    const frame0X = this._actionFrame0OriginX;
     for (let partIndex = 0; partIndex < parts.length; partIndex++) {
       const part = parts[partIndex],
         texture = this.textures.get(part.texture);
@@ -449,8 +466,9 @@ export class EntityAnimation {
       sprite.texture = texture;
       sprite.visible = true;
       sprite.alpha = this.sprites[partIndex].alpha;
+      const px = frame0X !== null ? frame0X : part.x;
       sprite.position.set(
-        part.x + x * layout.cx + (part.flip ? texture.width : 0),
+        px + x * layout.cx + (part.flip ? texture.width : 0),
         part.y + y * layout.cy,
       );
       sprite.scale.set(part.flip ? -1 : 1, 1);
