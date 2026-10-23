@@ -228,11 +228,23 @@ export class EntityAnimation {
    * @param {number} ms */
   advance(ms) {
     const advanced = advanceActionClock(this, ms);
+    this.advanceAuxiliary(ms);
+    if (advanced) this.selectTimedFrame();
+  }
+
+  /** Advance systems that run independently of the body animation clock.
+   *  These include face expressions, the auto-blink scheduler, equipment
+   *  effects, death-ghost motion, and transient afterimages. Separating them
+   *  from advanceActionClock() lets callers drive the body with seek() (as
+   *  combat predict does) without pausing face-clock updates — otherwise
+   *  the player would freeze mid-blink during a swing. Mirrors the GM source
+   *  which keeps a separate FaceCount ticker that runs regardless of body pose. */
+  advanceAuxiliary(ms) {
     this.advanceExpression(ms);
     this.advanceBlink(ms);
     this.applyDeathMotion();
     this.equipmentEffects?.advance(ms);
-    if (advanced) this.selectTimedFrame();
+    this.advanceAfterimages?.(ms);
   }
 
   /** Automatic blink scheduler for character entities that have a `blink` face
