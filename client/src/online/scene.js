@@ -929,6 +929,15 @@ export class OnlineScene {
       view.entity.id === this.selfId &&
       this.localCombat?.draw(view.animation)
     ) {
+      // Attack actions drive the body with seek() (localCombat.draw sets action
+      // and seeks to the authoritative weapon-time position), skipping the normal
+      // advance() path that runs the face clock. Advance auxiliary systems
+      // (blink scheduler, face expression timer, equipment effects, afterimages)
+      // so they keep running regardless of body pose — matches GM source where
+      // FaceCount ticks independently. Uses optional chaining so callers on
+      // branches that predate advanceAuxiliary (pre- blink-and-climb merge)
+      // safely no-op.
+      view.animation.advanceAuxiliary?.(step);
       return;
     }
     view.animation.advance(step);
