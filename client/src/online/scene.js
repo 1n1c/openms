@@ -75,6 +75,7 @@ export class OnlineScene {
     this.filter = createCameraFilter();
     this.intent = intent;
     this.selfId = null;
+    this._localHitAt = new Map(); // mobId → performance.now() when local player last hit it
     this.tick = 0;
     this.motionNow = performance.now();
     this.presentationAt = this.motionNow;
@@ -363,9 +364,16 @@ export class OnlineScene {
     if (entity.mobState) {
       view.animation.container.visible = entity.mobState.bodyVisible;
       if (view.mobName) view.mobName.visible = entity.mobState.nameVisible;
-      // Update HP bar fill from server-authored state
+      // Update HP bar fill from server-authored state — only visible if the
+      // local player recently hit this mob (within the drawMobHpBar 5s window).
+      // Other players' damage still changes hp but does not surface the bar.
       if (view.mobHpBar) {
-        drawMobHpBar(view.mobHpBar, entity.mobState.hp ?? 0, entity.mobState.maxHP ?? 0);
+        const hitAt = this._localHitAt.get(entity.id);
+        if (!hitAt || performance.now() - hitAt > 5000) {
+          view.mobHpBar.visible = false;
+        } else {
+          drawMobHpBar(view.mobHpBar, entity.mobState.hp ?? 0, entity.mobState.maxHP ?? 0);
+        }
       }
     }
     this.observeCombatExpression(view);

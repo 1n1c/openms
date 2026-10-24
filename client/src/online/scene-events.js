@@ -137,6 +137,14 @@ export class SceneEvents {
     if (this.owner.localCombat?.consumeImpact(event)) return;
     const view = this.owner.views.get(event.targetId);
     if (!view) return;
+    // Track local player's hits so mob HP bars only surface for the attacker.
+    if (
+      event.actorId === this.owner.selfId &&
+      view.entity.kind === "mob" &&
+      event.damage > 0
+    ) {
+      this.owner._localHitAt.set(event.targetId, performance.now());
+    }
     this.reserveNumber();
     if (view.entity.kind === "mob") {
       const target = this.target(view);
