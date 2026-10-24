@@ -1191,7 +1191,11 @@ export class OnlineUI {
       this.flushChatSettings();
       this.social.observeInvitation();
     }
-    if (status === "disconnected" || status === "signing-out") {
+    if (
+      status === "disconnected" ||
+      status === "signing-out" ||
+      status === "recovering"
+    ) {
       this.transitions.cancel();
       this.closeStorage();
     }
