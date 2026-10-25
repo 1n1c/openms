@@ -294,7 +294,7 @@ export const COMBAT_RESULT_SCHEMAS = {
  *  OfflineField blink algorithm; the online client must not re-implement it with
  *  variable-elapsed render-frame arithmetic, so it imports these raw values from here. */
 export const PLAYER_HIT = Object.freeze({
-  timerMs: 1200,
+  timerMs: 1500,
   tickMs: 30,
   ticksPerPhase: 2,
   alertMs: 5000,
