@@ -120,19 +120,21 @@ export function beginAttack(world, actor) {
   return { code: "OK" };
 }
 
+function isEligibleTarget(actor) {
+  return (
+    actor.profile.hp > 0 &&
+    actor.skillField &&
+    actor.state === "active" &&
+    !actor.retiring &&
+    !actor.deliveryError
+  );
+}
+
 function nearestTarget(field, mob) {
   let target = null,
     distance = Infinity;
   for (const actor of field.characters.values()) {
-    if (
-      actor.profile.hp <= 0 ||
-      !actor.skillField ||
-      actor.state !== "active" ||
-      actor.retiring ||
-      actor.deliveryError
-    ) {
-      continue;
-    }
+    if (!isEligibleTarget(actor)) continue;
     const dx = actor.simulation.x - mob.x,
       dy = actor.simulation.y - mob.y;
     const squared = dx * dx + dy * dy;
@@ -142,6 +144,31 @@ function nearestTarget(field, mob) {
     }
   }
   return target;
+}
+
+/** Prefer the actor who is actually hurting this mob, so aggro and kill credit
+ *  stay in lockstep. When the mob has aggro and a damage record exists, chase the
+ *  highest-contributor actor (falling back to damageOwnerId if damageCredit is empty).
+ *  Otherwise — first encounter, aggro expired with no records, or the preferred actor
+ *  became ineligible — fall back to nearest target. BOSS mobs already skip
+ *  admitMobAggro so aggro.damageInstances stays 0 and they fall straight through
+ *  to nearestTarget, preserving the "surround the boss" fairness. */
+function selectMobTarget(field, mob) {
+  if (mob.aggro?.damageInstances > 0) {
+    let preferred = null;
+    if (mob.damageCredit?.size > 0) {
+      preferred = [...mob.damageCredit.values()].sort(
+        (a, b) => b.damage - a.damage,
+      )[0]?.actor;
+    }
+    if (!preferred && mob.damageOwnerId) {
+      preferred = field.characters.get(mob.damageOwnerId);
+    }
+    if (preferred && isEligibleTarget(preferred)) {
+      return preferred;
+    }
+  }
+  return nearestTarget(field, mob);
 }
 
 function scheduledMobImpact(field, mob, amount, hit) {
@@ -194,7 +221,7 @@ export function advanceCombat(world, field) {
 }
 
 function advanceSharedMob(field, mob) {
-  const target = nearestTarget(field, mob);
+  const target = selectMobTarget(field, mob);
   mob.targetId = target?.id ?? null;
   const prior = mob.action;
   const alive = mob.alive;
@@ -258,7 +285,7 @@ function advanceCombatActor(world, actor) {
 
 export function advanceMobAttack(world, field, mob) {
   if (mob.incomingDeliveries) return;
-  const selected = nearestTarget(field, mob);
+  const selected = selectMobTarget(field, mob);
   if (!selected || !selected.skillField.mobAttackAllowed(mob)) return;
   if (mob.state !== "attack") {
     beginSharedMobAttack(field, mob);
