@@ -137,14 +137,12 @@ export class EntityAnimation {
     this.playback = playback;
     this.current = next;
     // Cache frame-0 origin.x to normalize all frames against it — but ONLY for
-    // single-part entities (mob/npc). Characters have MULTI-PART frames where
-    // each part (head, body, weapon, ...) carries its own independent origin.x
-    // that encodes the part's anatomical offset. Pinning all parts to frame-0's
-    // first-part origin would collapse them into a single column.
-    // Non-character entities always carry exactly one part per frame, so origin
-    // variance is purely per-frame anchor jitter (WZ Mob.wz per-frame origin.x
-    // varies by 1-5px), not part layout — the classic walk wrap-around stutter.
-    this._actionFrame0OriginX = this.kind !== "character"
+    // mob entities where WZ Mob.wz per-frame origin.x varies by 1-5px due to
+    // walk wrap-around export jitter. Every other single-part kind (portal, npc,
+    // reactor, effect) encodes DESIGN-INTENDED origin.x variance — portal frames
+    // drift left/right as part of the visual pulse, reactors have per-frame
+    // authored offsets, etc. White-list "mob" rather than black-list the rest.
+    this._actionFrame0OriginX = this.kind === "mob"
       ? (this.current?.parts?.[0]?.[0]?.x ?? 0)
       : null;
     this.actionTimeMs = 0;
