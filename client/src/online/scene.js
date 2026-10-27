@@ -75,6 +75,7 @@ export class OnlineScene {
     this.filter = createCameraFilter();
     this.intent = intent;
     this.selfId = null;
+    this._myMobHits = new Map(); // mobId → performance.now() of this player's last damage
     this.tick = 0;
     this.motionNow = performance.now();
     this.presentationAt = this.motionNow;
@@ -365,7 +366,7 @@ export class OnlineScene {
       if (view.mobName) view.mobName.visible = entity.mobState.nameVisible;
       // Update HP bar fill from server-authored state
       if (view.mobHpBar) {
-        drawMobHpBar(view.mobHpBar, entity.mobState.hp ?? 0, entity.mobState.maxHP ?? 0);
+        drawMobHpBar(view.mobHpBar, entity.mobState.hp ?? 0, entity.mobState.maxHP ?? 0, this._myMobHits.get(entity.id) ?? -1);
       }
     }
     this.observeCombatExpression(view);

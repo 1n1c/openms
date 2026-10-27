@@ -26,10 +26,10 @@ const COLOR_FRAME_BLACK = 0x000000;
 const COLOR_FRAME_WHITE = 0xffffff;
 const COLOR_ACCENT_DARK = 0x990000; // deeper red, avoids clashing with low-HP fill
 
-// HP bar auto-hide: hide 5s after last hit, with 1.5s fade-out tail.
-const HPBAR_SHOW_MS = 5000;
+// HP bar auto-hide: hide 10s after last hit, with 1.5s fade-out tail.
+const HPBAR_SHOW_MS = 10000;
 const HPBAR_FADE_MS = 1500;
-const HPBAR_VISIBLE_WINDOW = HPBAR_SHOW_MS - HPBAR_FADE_MS; // 3500
+const HPBAR_VISIBLE_WINDOW = HPBAR_SHOW_MS - HPBAR_FADE_MS; // 8500
 
 export function createMobHpBar() {
   const bar = new Graphics();
@@ -43,15 +43,29 @@ export function createMobHpBar() {
 }
 
 /** Draw the nested-frame HP bar.  All rects centered at x=0.
- *  Auto-hides 5 seconds after the last hp reduction, with a 1.5s linear fade. */
-export function drawMobHpBar(bar, hp, maxHP) {
+ *  Auto-hides 10 seconds after the last hp reduction, with a 1.5s linear fade.
+ *
+ *  ownerHitAt controls visibility anchoring:
+ *    undefined  → OFFLINE mode: HP-drop detector is the sole anchor (default)
+ *    positive   → ONLINE + player attacked this mob: use this timestamp
+ *    non-positive → ONLINE + player never attacked: HP-drop detector DISABLED,
+ *                   _hitAt stays unchanged — bar only visible to attackers */
+export function drawMobHpBar(bar, hp, maxHP, ownerHitAt = undefined) {
   const now = performance.now();
   bar.clear();
 
-  // Detect a fresh hit: hp decreased since last draw
-  if (bar._lastHp >= 0 && hp < bar._lastHp) {
-    bar._hitAt = now;
+  if (ownerHitAt === undefined) {
+    // OFFLINE: one local player, HP-drop detector is the only signal
+    if (bar._lastHp >= 0 && hp < bar._lastHp) bar._hitAt = now;
+  } else if (ownerHitAt > 0) {
+    // ONLINE + attacker: use authoritative per-event timestamp
+    if (ownerHitAt > bar._hitAt) bar._hitAt = ownerHitAt;
   }
+  // ONLINE + non-attacker (ownerHitAt <= 0): do NOTHING.
+  // The HP-drop detector is intentionally disabled because the server
+  // broadcasts every mob HP change to all clients — letting it fire would
+  // make the bar visible to spectators too.
+
   bar._lastHp = hp;
 
   if (!maxHP || !hp || hp <= 0 || hp >= maxHP) {
