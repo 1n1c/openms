@@ -48,6 +48,16 @@ function pickupOwnerAllows(info, identity, now) {
   );
 }
 
+/** Returns true if this drop should render for the current client.
+ *  Uses the same ownership guard as pickup — drops outside the pickup window
+ *  (another player claimed it and the claim hasn't expired) are hidden. */
+function dropVisibleTo(info, selfId, now) {
+  // Party info not wired through OnlineScene yet — simplified identity means
+  // party members' drops in the claim window also hide. Revisit if needed.
+  const identity = { id: selfId, partyId: null, partyMembers: [] };
+  return pickupOwnerAllows(info, identity, now);
+}
+
 /** Retains display ownership after a server-confirmed pickup, never inventory ownership. */
 export class SceneDrops {
   constructor(owner) {
@@ -56,12 +66,14 @@ export class SceneDrops {
   }
 
   observe(view) {
-    const animation = view.animation;
+    const info = view.entity.dropInfo;
     const motion = view.motion;
-    animation.container.visible = motion.visible;
+    const baseVisible = motion.visible && dropVisibleTo(info, this.owner.selfId, Date.now());
+    const animation = view.animation;
+    animation.container.visible = baseVisible;
     animation.container.rotation = motion.rotation;
     animation.container.alpha = motion.alpha;
-    animation.container.eventMode = view.entity.dropInfo.disappearing
+    animation.container.eventMode = info.disappearing
       ? "none"
       : "static";
     animation.setPosition(motion.x, motion.renderY(centerDrop(animation)));
