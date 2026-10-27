@@ -138,5 +138,12 @@ export const dropInfoSchema = record({
   expiresAt: revision,
   questId: u32,
   disappearing: boolean,
+  playerDrop: boolean,
 });
 export const DROP_ENTITY_FIELDS = { dropInfo: optional(dropInfoSchema) };
+
+/** Kill-claim window (ms): only the attacker (or their party) may see and
+ *  pick up drops for this duration; after that, all players on the field can.
+ *  Mirrored by both server (admission gate in field-drops.js) and client
+ *  (visibility guard in scene-drops.js) so the two never disagree. */
+export const DROP_OWNER_MS = 120000;
