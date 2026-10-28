@@ -1056,6 +1056,7 @@ export class OnlineScene {
     }
     const view = this.views.get(id);
     if (!view) return;
+    if (view.entity.kind === "drop") this.drops.remove(id);
     if (this.lifeEntities.get(view.entity.placementId) === view) {
       this.lifeEntities.delete(view.entity.placementId);
     }
