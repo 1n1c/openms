@@ -398,7 +398,7 @@ export class OnlineScene {
       if (typeof name !== "string") {
         throw new Error("Original monster name is not packaged.");
       }
-      view.mobName = createMobNameLabel(name);
+      view.mobName = createMobNameLabel(name, entity.mobState?.level ?? 1);
       view.mobName.position.set(0, 4);
       animation.container.addChild(view.mobName);
       this.scene.registerPresentationContainer(view.mobName);

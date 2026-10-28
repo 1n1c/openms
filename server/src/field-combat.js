@@ -395,6 +395,7 @@ export function mobCombatFields(mob) {
       hp: mob.hp,
       maxHP: mob.maxHP,
       opacity: mob.opacity,
+      level: mob.template.info.level ?? 1,
       nameRemainingMs: mob.nameRemainingMs,
       nameVisible: Boolean(
         mob.visible &&

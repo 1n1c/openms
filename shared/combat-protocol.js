@@ -152,6 +152,7 @@ export const COMBAT_ENTITY_FIELDS = {
       hp: u32,
       maxHP: u32,
       opacity: number(0, 1, false),
+      level: number(1, 200),
       generation: u32,
       movementType: number(0, 3),
       phase: string(/^[a-z-]{1,64}$/, 64),

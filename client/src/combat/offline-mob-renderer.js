@@ -1,4 +1,4 @@
-import { Text } from "pixi.js";
+import { Container, Text } from "pixi.js";
 import { EntityAnimation } from "../rendering/animation.js";
 import { VisualTextures } from "../rendering/visual-resources.js";
 import { entities } from "../rendering/stream-validation.js";
@@ -8,20 +8,52 @@ import { mobFlipped } from "./mob-movement-metadata.js";
 const MAX_PENDING_TEMPLATES = 2;
 const PREFETCH_VIEWPORTS = 0.5;
 
-export function createMobNameLabel(name) {
-  const label = new Text({
-    text: name ?? "",
-    style: {
-      fontFamily: "sans-serif",
-      fontSize: 12,
-      fill: 0xffffa0,
-      align: "center",
-      stroke: { color: 0x15202b, width: 3 },
-    },
-  });
-  label.anchor.set(0.5, 0);
-  label.eventMode = "none";
-  return label;
+export function createMobNameLabel(name, level = null) {
+  const container = new Container();
+  container.eventMode = "none";
+
+  const nameStyle = {
+    fontFamily: "sans-serif",
+    fontSize: 12,
+    fill: 0xffffa0,
+    align: "center",
+    stroke: { color: 0x15202b, width: 3 },
+  };
+
+  if (level != null) {
+    const levelText = new Text({
+      text: `Lv.${level} `,
+      style: {
+        ...nameStyle,
+        fontSize: 11,
+        fill: 0xffffff,
+      },
+    });
+    levelText.anchor.set(0, 0);
+    levelText.eventMode = "none";
+
+    const nameText = new Text({
+      text: name ?? "",
+      style: nameStyle,
+    });
+    nameText.anchor.set(0, 0);
+    nameText.eventMode = "none";
+    nameText.x = levelText.width;
+
+    container.addChild(levelText, nameText);
+    const totalWidth = levelText.width + nameText.width;
+    container.pivot.set(totalWidth / 2, 0);
+  } else {
+    const nameText = new Text({
+      text: name ?? "",
+      style: nameStyle,
+    });
+    nameText.anchor.set(0.5, 0);
+    nameText.eventMode = "none";
+    container.addChild(nameText);
+  }
+
+  return container;
 }
 
 /** Gameplay lives in mobs; this owner may discard/reacquire only presentation. */
@@ -209,7 +241,7 @@ export class OfflineMobRenderer {
       const presentation = new EntityAnimation(source, slot.resources.textures);
       presentation.gameplayOwned = true;
       mob.presentation = presentation;
-      const label = createMobNameLabel(mob.template.name);
+      const label = createMobNameLabel(mob.template.name, mob.template.info.level ?? 1);
       presentation.container.addChild(label);
       mob.nameLabel = label;
       this.synchronizeMob(mob);
