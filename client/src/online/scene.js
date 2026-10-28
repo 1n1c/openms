@@ -629,6 +629,20 @@ export class OnlineScene {
     if (view.name) view.name.step(this.app.renderer.resolution);
     if (view.mobName) view.mobName.scale.x = animation.container.scale.x;
     if (view.mobHpBar) view.mobHpBar.scale.x = animation.container.scale.x;
+    // Self's action is driven entirely by drawSelfPose → scene.updateActor,
+    // which owns the authoritative local-prediction + override chain. The
+    // pose() path would otherwise fight it: entity.action carries the
+    // server's phase-aware getter (swingO1 during phase=="attack", "alert"
+    // during phase=="idle"+alerting), while drawSelfPose routes through
+    // prediction.simulation.action and the braceMs override. The two paths
+    // disagree between attack-duration-elapsed and phase-idle ticks, and
+    // every setAction call with a different name resets the alert frame
+    // counter to zero — producing the characteristic halving "抽搐" as the
+    // animation cycles between swing and alert.
+    if (entity.id === this.selfId) {
+      animation.holdFrame = view.holdClimb;
+      return;
+    }
     // A local hit reaction is presentation-only: the attacker sees the authored pose as soon
     // as it lands, and the observed action takes the mob back when it confirms or expires.
     const reaction = this.observeLocalReaction(view);
@@ -659,11 +673,51 @@ export class OnlineScene {
     let pose = action;
     if (action === "stand1") pose = animation.avatar?.standAction ?? action;
     if (action === "walk1") pose = animation.avatar?.walkAction ?? action;
+    // Alert posture: after an attack/hit the server keeps braceMs > 0 for
+    // ~5 seconds. While the player is idle-on-ground-and-not-seated with
+    // a stand pose, substitute the "alert" artwork so the body shows a
+    // combat-ready stance. Matches the native MapleStory behaviour where
+    // attacks leave the character standing in alert posture before they
+    // settle back into normal stand1/stand2.
+    if (
+      pose === "stand1" ||
+      pose === "stand2"
+    ) {
+      const combat = entity.combatState;
+      // Only require braceMs > 0 — not phase === "idle". The server
+      // writes phase and braceMs together in projectActor(), but the
+      // two updates can arrive at different client frames because
+      // prediction.simulation.action already cleared to stand before
+      // the next state frame lands. gating on phase === "idle" here
+      // would let one frame of stand flash through between the end of
+      // the swing animation and the arrival of the idle+braceMs state.
+      if (combat?.braceMs > 0) {
+        const remaining =
+          (view.braceReceivedAt !== undefined
+            ? Math.max(0, combat.braceMs - (this.motionNow - view.braceReceivedAt))
+            : combat.braceMs);
+        if (remaining > 0) {
+          pose = "alert";
+          if (view.braceReceivedAt === undefined) {
+            view.braceReceivedAt = this.motionNow;
+          }
+        } else {
+          view.braceReceivedAt = undefined;
+        }
+      } else {
+        view.braceReceivedAt = undefined;
+      }
+    }
     return animation.actions.has(pose)
       ? pose
       : (animation.avatar?.standAction ?? "stand1");
   }
   posePlayback(entity) {
+    // Alert posture always loops — the animation is an authored zigzag cycle
+    // independent of the combat phase. If braceMs > 0 the player is still
+    // recovering from an attack/hit and should not flip back to "once" even
+    // if the server's phase field still reads "attack" on the tick boundary.
+    if (entity.combatState?.braceMs > 0) return "loop";
     return (entity.combatState && entity.combatState.phase !== "idle") ||
       (entity.mobState &&
         (entity.mobState.hp === 0 ||
@@ -860,6 +914,19 @@ export class OnlineScene {
     if (view.entity.id === this.selfId) {
       this.drawSelfPose(view, simulation);
       this.localCombat?.incoming.drawSelf(view);
+      // DEBUG trace — remove after diagnosis
+      if (globalThis.__traceSelf) {
+        const a = view.animation;
+        const cs = view.entity.combatState;
+        const lc = this.localCombat;
+        console.log(
+          `[SELF f=${a.frame} e=${Math.round(a.elapsedMs)}ms ` +
+          `act=${a.action}/${a.playback} comp=${a.completed}] ` +
+          `phase=${cs?.phase} brace=${cs?.braceMs} ` +
+          `entAct=${view.entity.action} ` +
+          `lcNow=${lc?.current() ? `${Math.round(lc.now()-lc.current().started)}/${lc.current().duration}` : 'null'}`,
+        );
+      }
     }
     if (active && !this.paused) this.observeMob(view, elapsed);
     if (active && !this.paused) this.advanceView(view, elapsed);
@@ -970,13 +1037,68 @@ export class OnlineScene {
       : view.entity.facing;
     const action = animationName(view.entity.action);
     const local = this.localCombat?.current();
-    this.presentation.action = local
+    const localExpired =
+      !local && Boolean(this.localCombat?.active);
+    // Only route movement-style poses through the prediction simulation.
+    // Combat poses (swingO1/alert/dead/etc.) come straight from the server
+    // entity.action — it is the authoritative OfflineField getter that
+    // already picks attackName during phase=="attack" and "alert" during
+    // phase=="idle"+alerting. The previous `|| owns(entity)` branch routed
+    // phase=="attack" frames through simulation.action, which is movement-
+    // only and can return walk1/run1 transiently — fighting the alert
+    // override and resetting the animation every frame it disagreed.
+    let chosen = local
       ? local.action
       : simulation &&
           !view.entity.seat &&
-          (MOVEMENT_ACTIONS.has(action) || this.localCombat?.owns(view.entity))
+          MOVEMENT_ACTIONS.has(action)
         ? simulation.action
         : action;
+    // Native MapleStory animates the alert posture the frame AFTER the
+    // attack animation ends (AnimEnd → State = "alert"). Do the same
+    // locally: if the LocalCombat record just expired (attack animation
+    // finished its duration) but the server hasn't yet flipped phase to
+    // idle, force "alert" so we never show a stray swing frame or a
+    // stand flicker between the end of the swing and the arrival of the
+    // server's idle+braceMs state.
+    const combat = view.entity.combatState;
+    if (
+      localExpired &&
+      !view.entity.seat &&
+      combat?.braceMs > 0
+    ) {
+      chosen = "alert";
+    }
+    if (
+      !view.entity.seat &&
+      (chosen === "stand1" || chosen === "stand2") &&
+      combat?.braceMs > 0
+    ) {
+      // Share the same per-view countdown as poseAction() so self and
+      // peers extinguish alert at the same wall-clock moment.
+      const remaining =
+        (view.braceReceivedAt !== undefined
+          ? Math.max(0, combat.braceMs - (this.motionNow - view.braceReceivedAt))
+          : combat.braceMs);
+      if (remaining > 0) {
+        chosen = "alert";
+        if (view.braceReceivedAt === undefined) {
+          view.braceReceivedAt = this.motionNow;
+        }
+      } else {
+        view.braceReceivedAt = undefined;
+      }
+    } else if (combat?.braceMs === undefined || combat.braceMs <= 0) {
+      view.braceReceivedAt = undefined;
+    }
+    this.presentation.action = chosen;
+    // Explicit playback for self's pose — scene.updateActor has its own
+    // playback fallback that preserves the previous actor.playback when
+    // the action name doesn't change. That means the phase=attack → idle
+    // boundary could leave alert stuck as "once" and then flip to "loop"
+    // a frame later, resetting the animation. Alert always loops.
+    this.presentation.playback =
+      chosen === "alert" ? "loop" : undefined;
     if (simulation) {
       this.scene.updateActor(this.presentation);
       view.name?.step(this.app.renderer.resolution);
