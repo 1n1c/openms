@@ -1,4 +1,4 @@
-import { Container, Text } from "pixi.js";
+import { Container, Graphics, Text } from "pixi.js";
 import { EntityAnimation } from "../rendering/animation.js";
 import { VisualTextures } from "../rendering/visual-resources.js";
 import { entities } from "../rendering/stream-validation.js";
@@ -54,6 +54,127 @@ export function createMobNameLabel(name, level = null) {
   }
 
   return container;
+}
+
+/** Mob HP bar — 52×10 nested-frame gauge:
+ *  Layer order (outer → inner): black 1px → white 1px → black 1px.
+ *  Inner fill region is 46×4, split into top 3px HP-color fill + bottom 1px dark-red accent.
+ *  Hidden when full or dead. */
+const GAUGE_OUTER_W = 52;
+const GAUGE_OUTER_H = 10;
+const FRAME_PX = 1;       // thickness of each of the three frame layers
+const FILL_H = 4;         // inner fill region height (top + bottom accent)
+const FILL_COLOR_H = 3;   // top portion that shows HP-percent color
+const FILL_ACCENT_H = 1;  // bottom accent row
+const FILL_INSET = FRAME_PX * 3; // 3px total frame thickness on each side
+const FILL_W = GAUGE_OUTER_W - FILL_INSET * 2; // 46
+const FILL_Y = FRAME_PX * 3; // y=3, after 3 top frame layers
+
+const COLOR_FRAME_BLACK = 0x000000;
+const COLOR_FRAME_WHITE = 0xffffff;
+const COLOR_ACCENT_DARK = 0x990000; // deeper red, avoids clashing with low-HP fill
+
+// HP bar auto-hide: hide 10s after last hit, with 1.5s fade-out tail.
+const HPBAR_SHOW_MS = 10000;
+const HPBAR_FADE_MS = 1500;
+const HPBAR_VISIBLE_WINDOW = HPBAR_SHOW_MS - HPBAR_FADE_MS; // 8500
+
+export function createMobHpBar() {
+  const bar = new Graphics();
+  bar.eventMode = "none";
+  bar.hitArea = null;
+  bar.width = GAUGE_OUTER_W;
+  bar.height = GAUGE_OUTER_H;
+  bar._lastHp = -1;        // previous hp value, to detect damage
+  bar._hitAt = 0;          // performance.now() timestamp of last detected damage
+  return bar;
+}
+
+/** Draw the nested-frame HP bar.  All rects centered at x=0.
+ *  Auto-hides 10 seconds after the last hp reduction, with a 1.5s linear fade.
+ *
+ *  ownerHitAt controls visibility anchoring:
+ *    undefined  → OFFLINE mode: HP-drop detector is the sole anchor (default)
+ *    positive   → ONLINE + player attacked this mob: use this timestamp
+ *    non-positive → ONLINE + player never attacked: HP-drop detector DISABLED,
+ *                   _hitAt stays unchanged — bar only visible to attackers */
+export function drawMobHpBar(bar, hp, maxHP, ownerHitAt = undefined) {
+  const now = performance.now();
+  bar.clear();
+
+  if (ownerHitAt === undefined) {
+    // OFFLINE: one local player, HP-drop detector is the only signal
+    if (bar._lastHp >= 0 && hp < bar._lastHp) bar._hitAt = now;
+  } else if (ownerHitAt > 0) {
+    // ONLINE + attacker: use authoritative per-event timestamp
+    if (ownerHitAt > bar._hitAt) bar._hitAt = ownerHitAt;
+  }
+  // ONLINE + non-attacker (ownerHitAt <= 0): do NOTHING.
+  // The HP-drop detector is intentionally disabled because the server
+  // broadcasts every mob HP change to all clients — letting it fire would
+  // make the bar visible to spectators too.
+
+  bar._lastHp = hp;
+
+  if (!maxHP || !hp || hp <= 0 || hp >= maxHP) {
+    bar.visible = false;
+    bar.alpha = 1;
+    return;
+  }
+
+  // Decide visibility based on time since last hit
+  const elapsed = now - bar._hitAt;
+  if (bar._hitAt === 0) {
+    // Never been hit — show once damage is detected; do not show brand-new full mob
+    bar.visible = false;
+    bar.alpha = 1;
+    return;
+  }
+  if (elapsed > HPBAR_SHOW_MS) {
+    bar.visible = false;
+    bar.alpha = 1;
+    return;
+  }
+  // Fade-out tail (last HPBAR_FADE_MS)
+  if (elapsed > HPBAR_VISIBLE_WINDOW) {
+    bar.alpha = Math.max(0, 1 - (elapsed - HPBAR_VISIBLE_WINDOW) / HPBAR_FADE_MS);
+  } else {
+    bar.alpha = 1;
+  }
+
+  bar.visible = true;
+  const pct = hp / maxHP;
+  const cx = -GAUGE_OUTER_W / 2; // gauge center at x=0 of parent
+
+  // ------- three nested 1px black→white→black frames (as filled rects, not stroke) -------
+  // outer black
+  bar.rect(cx, 0, GAUGE_OUTER_W, FRAME_PX).fill(COLOR_FRAME_BLACK);                              // top
+  bar.rect(cx, GAUGE_OUTER_H - FRAME_PX, GAUGE_OUTER_W, FRAME_PX).fill(COLOR_FRAME_BLACK);      // bottom
+  bar.rect(cx, 0, FRAME_PX, GAUGE_OUTER_H).fill(COLOR_FRAME_BLACK);                             // left
+  bar.rect(cx + GAUGE_OUTER_W - FRAME_PX, 0, FRAME_PX, GAUGE_OUTER_H).fill(COLOR_FRAME_BLACK);  // right
+  // white frame (1px inset)
+  bar.rect(cx + FRAME_PX, FRAME_PX, GAUGE_OUTER_W - FRAME_PX * 2, FRAME_PX).fill(COLOR_FRAME_WHITE);
+  bar.rect(cx + FRAME_PX, GAUGE_OUTER_H - FRAME_PX * 2, GAUGE_OUTER_W - FRAME_PX * 2, FRAME_PX).fill(COLOR_FRAME_WHITE);
+  bar.rect(cx + FRAME_PX, FRAME_PX, FRAME_PX, GAUGE_OUTER_H - FRAME_PX * 2).fill(COLOR_FRAME_WHITE);
+  bar.rect(cx + GAUGE_OUTER_W - FRAME_PX * 2, FRAME_PX, FRAME_PX, GAUGE_OUTER_H - FRAME_PX * 2).fill(COLOR_FRAME_WHITE);
+  // inner black frame (another 1px inset)
+  bar.rect(cx + FRAME_PX * 2, FRAME_PX * 2, GAUGE_OUTER_W - FRAME_PX * 4, FRAME_PX).fill(COLOR_FRAME_BLACK);
+  bar.rect(cx + FRAME_PX * 2, GAUGE_OUTER_H - FRAME_PX * 2 - FRAME_PX, GAUGE_OUTER_W - FRAME_PX * 4, FRAME_PX).fill(COLOR_FRAME_BLACK);
+  bar.rect(cx + FRAME_PX * 2, FRAME_PX * 2, FRAME_PX, GAUGE_OUTER_H - FRAME_PX * 4).fill(COLOR_FRAME_BLACK);
+  bar.rect(cx + GAUGE_OUTER_W - FRAME_PX * 3, FRAME_PX * 2, FRAME_PX, GAUGE_OUTER_H - FRAME_PX * 4).fill(COLOR_FRAME_BLACK);
+
+  // ------- 46×4 fill region -------
+  const fillX = cx + FILL_INSET; // cx + 3
+  // full black background slot (shows through where HP fill does not reach)
+  bar.rect(fillX, FILL_Y, FILL_W, FILL_H).fill(COLOR_FRAME_BLACK);
+  // bottom 1px dark-red accent (full width, for depth)
+  bar.rect(fillX, FILL_Y + FILL_COLOR_H, FILL_W, FILL_ACCENT_H).fill(COLOR_ACCENT_DARK);
+  // top 3px — HP-percent color fill (width cropped by percent)
+  const colorW = Math.round(FILL_W * pct);
+  if (colorW > 0) {
+    const fillColor = pct > 0.5 ? 0x4dd24d : pct > 0.25 ? 0xffaa33 : 0xff4444;
+    bar.rect(fillX, FILL_Y, colorW, FILL_COLOR_H).fill(fillColor);
+  }
 }
 
 /** Gameplay lives in mobs; this owner may discard/reacquire only presentation. */
@@ -244,15 +365,25 @@ export class OfflineMobRenderer {
       const label = createMobNameLabel(mob.template.name, mob.template.info.level ?? 1);
       presentation.container.addChild(label);
       mob.nameLabel = label;
+      // HP bar: only show if template doesn't suppress it
+      if (!mob.template.info.HPgaugeHide) {
+        const hpBar = createMobHpBar();
+        hpBar.position.set(0, 0); // real position set in synchronizeMob
+        presentation.container.addChild(hpBar);
+        mob.hpBar = hpBar;
+      }
       this.synchronizeMob(mob);
       try {
         this.scene.addDynamicEntity(presentation);
         this.scene.registerPresentationContainer(label);
+        if (mob.hpBar) this.scene.registerPresentationContainer(mob.hpBar);
       } catch (error) {
         this.scene.unregisterPresentationContainer(label);
+        if (mob.hpBar) this.scene.unregisterPresentationContainer(mob.hpBar);
         mob.presentation = null;
         presentation.container.destroy({ children: true });
         label.destroy();
+        if (mob.hpBar) { mob.hpBar.destroy(); mob.hpBar = null; }
         mob.nameLabel = null;
         throw error;
       }
@@ -270,6 +401,17 @@ export class OfflineMobRenderer {
       !this.scene.offlineField?.hooks.skillTargetController?.()?.hidesBody(mob);
     entity.container.alpha = mob.opacity;
     this.synchronizeDepth(mob, entity);
+    // Update HP bar: position atop mob head, centered horizontally, flip reversal, animated fill
+    if (mob.hpBar) {
+      const slot = this.templates.get(mob.record.template);
+      const b = slot?.descriptor?.bounds;
+      // bounds is {left, right, top, bottom} where top<0 (head above feet anchor=0)
+      const height = b?.top ?? -30; // e.g. -40 means head is 40px above the foot anchor
+      mob.hpBar.position.set(0, height - 10);
+      // Flip reversal: container.scale.x=-1 flips the bar; undo with same scale
+      mob.hpBar.scale.x = entity.container.scale.x; // -1 × -1 = +1
+      drawMobHpBar(mob.hpBar, mob.hp, mob.maxHP);
+    }
     const once =
       !mob.alive ||
       mob.state === "spawning" ||
@@ -319,6 +461,11 @@ export class OfflineMobRenderer {
     }
     mob.nameLabel?.destroy();
     mob.nameLabel = null;
+    if (mob.hpBar) {
+      this.scene.unregisterPresentationContainer(mob.hpBar);
+      mob.hpBar.destroy();
+      mob.hpBar = null;
+    }
     this.scene.removeDynamicEntity(mob.id);
     mob.presentation.container.destroy({ children: true });
     mob.presentation = null;
