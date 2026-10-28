@@ -648,7 +648,7 @@ export class OnlineScene {
     const reaction = this.observeLocalReaction(view);
     animation.setAction(
       reaction ?? this.poseAction(view),
-      reaction ? "once" : this.posePlayback(entity),
+      reaction ? "once" : this.posePlayback(view),
     );
     // The observed action restarts at frame zero, so hand the mob back at its own elapsed time.
     if (view.reactionYielded) {
@@ -712,12 +712,14 @@ export class OnlineScene {
       ? pose
       : (animation.avatar?.standAction ?? "stand1");
   }
-  posePlayback(entity) {
+  posePlayback(view) {
+    const entity = view.entity;
     // Alert posture always loops — the animation is an authored zigzag cycle
-    // independent of the combat phase. If braceMs > 0 the player is still
-    // recovering from an attack/hit and should not flip back to "once" even
-    // if the server's phase field still reads "attack" on the tick boundary.
-    if (entity.combatState?.braceMs > 0) return "loop";
+    // independent of the combat phase. Only trigger this when poseAction
+    // actually resolved to "alert" (i.e. the peer is idle-on-ground), not
+    // whenever braceMs happens to be positive. A peer walking or jumping
+    // through the alert window must keep its normal playback (e.g. jump = "once").
+    if (this.poseAction(view) === "alert") return "loop";
     return (entity.combatState && entity.combatState.phase !== "idle") ||
       (entity.mobState &&
         (entity.mobState.hp === 0 ||
@@ -1062,10 +1064,19 @@ export class OnlineScene {
     // stand flicker between the end of the swing and the arrival of the
     // server's idle+braceMs state.
     const combat = view.entity.combatState;
+    const onGroundIdlePose =
+      chosen === "stand1" || chosen === "stand2";
+    // Only force "alert" if the player was idle-on-ground before/after
+    // the attack animation ends. Walking, jumping, climbing, flying and
+    // seated poses must continue uninterrupted — the alert posture is
+    // specifically an idle combat-ready stance, not a full-body lock.
+    // Matches the server-side alerting getter which also gates on
+    // (action === "stand1" || action === "stand2").
     if (
       localExpired &&
       !view.entity.seat &&
-      combat?.braceMs > 0
+      combat?.braceMs > 0 &&
+      onGroundIdlePose
     ) {
       chosen = "alert";
     }
