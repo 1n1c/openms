@@ -19,6 +19,7 @@ import { prepareNpcAmbient, advanceNpcs } from "./field-npcs.js";
 import { executeAction } from "./actions.js";
 import { operationFor } from "./action-rules.js";
 import { rebuildActorEffects, expireActorEffects } from "./action-character.js";
+import { incomingDamageBounds } from "../../shared/combat-formulas.js";
 import {
   createFieldMobs,
   prepareActorCombat,
@@ -464,6 +465,75 @@ export class OnlineWorld {
     });
     while (reports.size > MAX_HIT_REPORTS) {
       reports.delete(reports.keys().next().value);
+    }
+  }
+
+  /** Phase 5 (contact RNG sync): accept client-reported bodyAttack contact
+   *  damage, validate it's within the min/max range the server would roll, and
+   *  cache it on the actor so the server reuses it instead of rolling its own
+   *  RNG. One roll = one truth, no contact divergence. */
+  recordContact(actor, message) {
+    if (this.closed || actor.state !== "active" || !actor.field) {
+      throw protocolError("NOT_ALLOWED");
+    }
+    if (message.fieldEpoch !== actor.field.epoch) {
+      throw protocolError("STALE_FIELD");
+    }
+    if (
+      !Number.isSafeInteger(message.mobId) ||
+      !Number.isSafeInteger(message.damage) ||
+      message.damage < 0
+    ) {
+      throw protocolError("INVALID_MESSAGE");
+    }
+    const mob = actor.field.mobs.find((m) => m.id === message.mobId);
+    if (!mob || mob.template.info.bodyAttack !== 1) {
+      throw protocolError("INVALID_MESSAGE");
+    }
+    const magic = false; // contact is always physical
+    const info = mob.skillStatus?.projected;
+    if (!info) {
+      // Mob damage info not yet ready — fall through, server will roll its own
+      return;
+    }
+    const baseAttack = info.PADamage ?? 0;
+    const target = actor.profile;
+    const bounds = {};
+    incomingDamageBounds(
+      {
+        level: info.level ?? mob.template.info.level ?? 1,
+        defense: info.PDRate ?? 0,
+        str: info.str ?? 0,
+        dex: info.dex ?? 0,
+        luk: info.luk ?? 0,
+        attack: baseAttack,
+      },
+      {
+        level: target.level,
+        defense: target.stats?.defense ?? 0,
+        pdd: target.stats?.pdd ?? 0,
+        mdd: target.stats?.mdd ?? 0,
+      },
+      baseAttack,
+      bounds,
+    );
+    const min = Math.max(0, Math.floor(bounds.minimum ?? 0));
+    const max = Math.ceil(bounds.maximum ?? baseAttack);
+    if (message.damage < min || message.damage > max) {
+      // Cheating or divergent client — eject.
+      actor.admission = "CHEATING_CONTACT";
+      this.deliveryFailed(actor, {
+        code: "CHEATING_CONTACT",
+        message: `client contact damage ${message.damage} out of range [${min}, ${max}]`,
+      });
+      throw protocolError("CHEATING_CONTACT");
+    }
+    // Cache for this tick; consumed by combat-controller.contactDamage().
+    const cache = (actor.contactReports ??= new Map());
+    cache.set(String(mob.id), { damage: message.damage, tick: actor.field.tick });
+    if (cache.size > 8) {
+      const firstKey = cache.keys().next().value;
+      cache.delete(firstKey);
     }
   }
 

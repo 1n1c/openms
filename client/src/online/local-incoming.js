@@ -33,9 +33,19 @@ export class LocalIncoming {
     this.clocks = new Map();
     this.armed = new Set();
     this.pending = new Map();
+    // Phase 4 (RNG sync route A): server-authoritative pre-computed incoming
+    // damages, keyed by mobId → actionKey → {damage, critical, admitted}.
+    // resolve() consumes entries here before falling back to local RNG roll.
+    this.previewed = new Map();
     this.contactCooldownMs = 0;
     this.hitRemainingMs = 0;
     this.presentedAt = null;
+    // When fallbackPresent renders an incoming number (impact-arrives-first race),
+    // record the mobId here so the subsequent consumeImpact knows to skip the
+    // fallback path — the number is already drawn. This is separate from `pending`
+    // because pending tracks *local prediction* entries that impact confirms.
+    // fallbackPresent entries are impact-driven — they ARE the confirmation.
+    this.fallbackRendered = new Set();
   }
 
   bind() {
@@ -86,20 +96,17 @@ export class LocalIncoming {
     this.resolve(view, attack);
   }
 
-  /** `009581a9`/`bodyAttack`: the defender resolves a contact hit on the frame it touches
-   *  the mob, instead of one round trip after the authority's own `contactDamage` tick. */
+  /** BodyAttack contact is fully server-authoritative. The client no longer rolls
+   *  RNG locally for contact damage — the server's own contactDamage tick produces
+   *  the single truth for HIT/MISS, knockback, and blink. This eliminates the
+   *  Phase 5 reportContact race that caused "client MISS + server hit" RNG split,
+   *  which manifested as MISS float + knockback + blink mismatch.
+   *
+   *  Server impact path:
+   *    hit (amount>0) → scene-events.damage → fallbackPresent → float + blink ✓
+   *    MISS (amount=0) → scene-events.damage → amount guard skips → nothing renders ✓ */
   resolveContact(view) {
-    const info = view.life?.info;
-    if (!this.contactEligible(info)) return;
-    const self = this.localTarget();
-    const stats = this.combat.owner.state?.presentation.stats;
-    if (!self || !stats) return;
-    if (!this.contactOverlaps(view, self)) return;
-    const amount = this.roll(info, stats, null);
-    if (amount === null) return;
-    this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.remember(view.entity.id, amount);
-    this.present(self, amount, view, null);
+    // Intentionally empty. Contact damage is driven by server impact events only.
   }
 
   contactEligible(info) {
@@ -160,6 +167,46 @@ export class LocalIncoming {
     return true;
   }
 
+  /** Phase 4 (RNG sync route A): absorb the server's authoritative pre-roll
+   *  incoming damage for a mob's authored swing. resolve() will consume these
+   *  entries before falling back to its own local RNG, eliminating the
+   *  "client rolled crit but server rolled non-crit" divergence. */
+  ingestPreview(mobId, attackAction, previews) {
+    const actionKey = attackAction ?? "contact";
+    let bucket = this.previewed.get(mobId);
+    if (!bucket) {
+      bucket = new Map();
+      this.previewed.set(mobId, bucket);
+    }
+    bucket.set(actionKey, { previews, at: this.now() });
+    // Cap the previewed map to the last 8 mobs (memory guard).
+    if (this.previewed.size > 8) {
+      const firstKey = this.previewed.keys().next().value;
+      this.previewed.delete(firstKey);
+    }
+  }
+
+  /** Consume the server preview for (mobId, actionKey) if one exists.
+   *  Returns { damage, admitted } or null if no preview available. */
+  consumePreview(mobId, actionKey, selfId) {
+    const bucket = this.previewed.get(mobId);
+    if (!bucket) return null;
+    const actionKeyFinal = actionKey ?? "contact";
+    const entry = bucket.get(actionKeyFinal);
+    if (!entry) return null;
+    // Expire previews older than PREDICTION_TTL_MS — same window as pending.
+    if (this.now() - entry.at > PREDICTION_TTL_MS) {
+      bucket.delete(actionKeyFinal);
+      return null;
+    }
+    // Find the preview that targets this local player.
+    const hit = entry.previews.find((p) => p.targetId === selfId);
+    bucket.delete(actionKeyFinal);
+    if (!bucket.size) this.previewed.delete(mobId);
+    if (!hit) return null;
+    return { damage: hit.damage, admitted: hit.admitted };
+  }
+
   resolve(view, attack) {
     if (this.contactCooldownMs > 0) return;
     const self = this.localTarget();
@@ -167,11 +214,33 @@ export class LocalIncoming {
     const stats = this.combat.owner.state?.presentation.stats;
     if (!self || !info || !stats) return;
     if (!this.overlapsPlayer(view, attack, self, info)) return;
-    const amount = this.roll(info, stats, attack);
-    if (amount === null) return;
+
+    // Phase 4 (RNG sync route A): prefer server's authoritative pre-rolled
+    // damage over local Math.random(). This is the core fix for "client rolled
+    // crit but server rolled non-crit" divergence. Contact damage (action=null
+    // from bodyAttack mobs) has no server preview — fall through to local roll.
+    let amount;
+    const preview = attack?.action
+      ? this.consumePreview(view.entity.id, attack.action, this.scene?.selfId)
+      : null;
+    if (preview) {
+      if (!preview.admitted) return; // server says miss/dodge — skip render
+      amount = preview.damage;
+    } else {
+      amount = this.roll(info, stats, attack);
+      if (amount === null) return;
+      // Phase 5 (contact RNG sync): for bodyAttack contact (attack=null), the
+      // client rolled this damage locally. Report it to the server so the server
+      // validates it's within [min, max] and reuses it instead of rolling its own
+      // RNG — one roll = one truth, no contact RNG split.
+      if (!attack?.action) {
+        this.combat.owner?.reportContact?.(view.entity.id, amount);
+      }
+    }
+
     this.contactCooldownMs = HIT_EXPRESSION_MS;
-    this.remember(view.entity.id, amount);
-    this.present(self, amount, view, attack.action);
+    this.remember(view.entity.id, amount, attack?.action ?? "contact");
+    this.present(self, amount, view, attack?.action ?? null);
   }
 
   localTarget() {
@@ -224,7 +293,7 @@ export class LocalIncoming {
     return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
   }
 
-  remember(sourceId, amount) {
+  remember(sourceId, amount, actionKey = null) {
     this.prune();
     let queue = this.pending.get(sourceId);
     if (!queue) {
@@ -232,7 +301,7 @@ export class LocalIncoming {
       this.pending.set(sourceId, queue);
     }
     if (queue.length >= MAX_PENDING) queue.shift();
-    queue.push({ at: this.now(), damage: amount });
+    queue.push({ at: this.now(), damage: amount, actionKey });
   }
 
   /** Draw the predicted digit over the local player at the frame the swing lands, and start
@@ -254,9 +323,35 @@ export class LocalIncoming {
     );
   }
 
+  /** Fallback: render an incoming number from a late-arriving authoritative impact
+   *  that the local prediction missed (e.g. mob walk overlap race between client
+   *  and server ticks). Does NOT write to pending — that queue is for local
+   *  predictions that impact confirms; fallbackPresent IS the confirmation.
+   *  Instead records in fallbackRendered so a subsequent impact for the same mob
+   *  skips re-rendering. */
+  fallbackPresent(amount, sourceId) {
+    if (!this.scene) return;
+    // Raw self-view lookup — skip localTarget's protectionMs guard. This path
+    // is driven by an authoritative server impact event that has ALREADY been
+    // admitted, so the invulnerability window does not apply here. (The guard
+    // exists for client-side local roll paths that run BEFORE any server hit.)
+    const self = this.scene.views.get(this.scene.selfId);
+    if (!self || self.entity.combatState?.phase === "dead") return;
+    // amount <= 0 (MISS) also renders: present() skips hit face + feedback (blink)
+    // for amount<=0 but still calls events.combat.show(0) → blue "MISS" glyph.
+    this.contactCooldownMs = HIT_EXPRESSION_MS;
+    this.present(self, amount, { entity: { id: sourceId }, drawX: self.drawX, drawY: self.drawY }, null);
+  }
+
   feedback(view, source, amount, attackAction) {
     this.hitRemainingMs = HIT_EXPRESSION_MS;
-    this.motion?.begin(source.entity.id, view.drawX >= source.drawX ? 1 : -1);
+    // Client-authoritative: knockback for incoming attacks comes ONLY from the server's
+    // motionDivert → applyDiverts → mergeImpulse path. LocalHitMotion creates an
+    // independent hitPreview simulation that step()s for N frames, its position diverges
+    // from the server's authoritative path, and the subsequent reject/confirm either
+    // causes a visible position jump OR triggers server motion.fault (kick). Disabling
+    // local prediction here eliminates the divergence entirely.
+    // this.motion?.begin(source.entity.id, view.drawX >= source.drawX ? 1 : -1);
     this.combat.owner.audio?.onPlayerHit(
       {
         amount,
@@ -283,25 +378,37 @@ export class LocalIncoming {
     return true;
   }
 
-  /** True when one local prediction already presented this authoritative incoming event. */
+  /** True when one local prediction already presented this authoritative incoming event.
+   *  Phase 2 (root cause C): prefer exact actionKey match over blind FIFO so that
+   *  consecutive same-mob attacks cannot cross-consume each other's predictions.
+   *  Falls back to FIFO when no actionKey matches, for contact-damage entries
+   *  (actionKey = "contact" vs server attackAction = null) and legacy entries.
+   *
+   *  When queue is empty also checks fallbackRendered — that Set tracks impacts
+   *  that fallbackPresent already drew, so scene-events doesn't double-render. */
   consume(event) {
     if (event.cause !== "mob-attack" && event.cause !== "contact") return false;
     if (event.targetId !== this.combat.scene?.selfId) return false;
-    // Any admitted incoming outcome, including a miss, starts the shared hit window.
     const queue = this.pending.get(event.actorId);
     if (!queue?.length) {
-      this.contactCooldownMs = HIT_EXPRESSION_MS;
+      // Server-authoritative contact: resolveContact() is intentionally empty,
+      // so no pending entry exists for bodyAttack impacts. Always return false
+      // to let scene-events.damage() call fallbackPresent() for each authoritative
+      // impact — this handles both first-impact races (state synced before event)
+      // and consecutive impacts on the same mob (MISS→HIT, HIT→HIT).
+      // Local authored attack impacts (mob-attack action != null) DO write pending
+      // via resolve() → remember(), so those still match below.
       return false;
     }
-    const prediction = queue.shift();
+    const wantKey = event.attackAction ?? "contact";
+    let index = queue.findIndex((p) => p.actionKey === wantKey);
+    if (index < 0) index = 0; // fallback FIFO head
+    const prediction = queue.splice(index, 1)[0];
     if (!queue.length) this.pending.delete(event.actorId);
     if (event.damage <= 0 || event.knockback === false) {
       this.motion?.reject(event.actorId);
     }
-    return (
-      this.now() - prediction.at <= PREDICTION_TTL_MS &&
-      event.damage > 0 === prediction.damage > 0
-    );
+    return this.now() - prediction.at <= PREDICTION_TTL_MS;
   }
 
   prune() {

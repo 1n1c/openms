@@ -48,6 +48,8 @@ export class SceneEvents {
       if (view) this.combat.onMagnetResult(this.target(view), event.success);
     } else if (event.kind === "chat" && event.channel === "map") {
       await this.chat(event);
+    } else if (event.kind === "combat.incoming-preview") {
+      this.incomingPreview(event);
     }
   }
 
@@ -137,29 +139,50 @@ export class SceneEvents {
       targetId: event.targetId,
       outcome: event.damage > 0 ? "hit" : "miss",
     });
-    // The attacker already drew its own number at its release frame; the authoritative event
-    // still moves HP, death and loot, so only the duplicate digits are dropped.
-    if (this.owner.localCombat?.consumeImpact(event)) return;
-    const view = this.owner.views.get(event.targetId);
-    if (!view) return;
-    this.reserveNumber();
-    if (view.entity.kind === "mob") {
-      const target = this.target(view);
-      if (event.skillId) {
-        this.combat.onSkillDamageLine(target, event.damage, event);
-      } else this.combat.onMobHit(target, event.damage, event.critical);
-    } else {
-      const animation = view.animation;
-      const geometry = animation.current.geometry[animation.frame];
-      this.combat.show(
-        event.hpDamage,
-        2,
-        this.combat.fixedNumberPlacement(
-          event.position.x,
-          event.position.y + geometry.y,
-        ),
-      );
+    const combat = this.owner.localCombat;
+    // consumeImpact returns true when a local prediction already rendered feedback.
+    // For outgoing (player→mob): Phase 3 moved digit rendering fully to the authority path,
+    // so we ALWAYS render the authoritative number — consumed is irrelevant here.
+    // For incoming (mob→player): LocalIncoming.present() renders its own digits, so consumed=true
+    // means we skip the fallbackPresent (number already drawn locally).
+    const consumed = combat ? combat.consumeImpact(event) : false;
+    // Hard direction guard: ONLY outgoing impacts may render through the onMobHit
+    // path. Incoming impacts (mob→player) must NEVER call onMobHit — that paints
+    // the yellow mob-hit glyph onto the player. Incoming digits are LocalIncoming's
+    // sole responsibility.
+    const incomingCause = event.cause === "mob-attack" || event.cause === "contact" || event.cause === "fall";
+    if (!incomingCause && event.damage > 0) {
+      // Outgoing: ALWAYS render authoritative digit (Phase 3). LocalHits no longer paints numbers.
+      const view = this.owner.views.get(event.targetId);
+      if (view) {
+        this.reserveNumber();
+        const target = this.target(view);
+        if (event.skillId > 0) {
+          this.combat.onSkillDamageLine(target, event.damage, {
+            line: event.line ?? 0,
+            critical: event.critical,
+            skillId: event.skillId,
+          });
+        } else {
+          this.combat.onMobHit(target, event.damage, event.critical);
+        }
+      }
+    } else if (!consumed && incomingCause && event.targetId === this.owner.selfId) {
+      // Incoming impact with no matching local prediction — likely a client/server
+      // overlap race (mob walking: client tick N just missed overlap, server tick N+1
+      // caught it → HP deducted but no number rendered). Fall back to LocalIncoming's
+      // present path so the user sees the damage they actually took.
+      // amount=0 (MISS) also falls through here — show blue MISS glyph, no hit face.
+      combat?.incoming?.fallbackPresent(event.damage, event.actorId);
     }
+  }
+  /** Phase 4 (RNG sync route A): store server-authoritative incoming damage
+   *  previews so LocalIncoming can render using the server's RNG roll instead
+   *  of its own divergent local roll. */
+  incomingPreview(event) {
+    const incoming = this.owner.localCombat?.incoming;
+    if (!incoming) return;
+    incoming.ingestPreview(event.mobId, event.attackAction, event.previews);
   }
   recovery(event) {
     if (event.hp <= 0) return;

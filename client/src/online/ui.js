@@ -1131,20 +1131,34 @@ export class OnlineUI {
   reportHits(report) {
     return this.transport.reportHits(report);
   }
+  /** Phase 5 (contact RNG sync): proxy for LocalIncoming to send client-rolled
+   *  contact damage so the server can validate and reuse it (no RNG split). */
+  reportContact(mobId, damage) {
+    return this.transport.reportContact(mobId, damage);
+  }
   impactAudio(event) {
-    const predicted = this.localCombat.consumeImpact(event);
+    // consumeImpact returns true when a local prediction (LocalHits for outgoing,
+    // LocalIncoming for incoming) already rendered feedback. When true → skip the
+    // authoritative replay to avoid double-sound. When false → the authoritative
+    // impact becomes the fallback source of audio.
+    // Previously `skipAuthority = isOutgoing || consumed` but LocalHits.select() can
+    // miss the mob at input time (render-layer pose vs authoritative pose race) →
+    // resolved.length=0 → no local sound → server sound also skipped → silent hit.
+    // The `isOutgoing` guard was always wrong — consumeImpact already answers the
+    // right question: did the client already render this?
+    const consumed = this.localCombat.consumeImpact(event);
+    const skipAuthority = consumed;
     const target = this.entities.find((entry) => entry.id === event.targetId);
     if (target?.kind === "mob" && event.damage > 0) {
+      if (skipAuthority) return; // client already played onMobHit locally
       const mob = {
         ...event.position,
         templateId: target.templateId,
         alive: !event.lethal,
       };
       if (event.lethal) this.audio.onMobDeath(mob, this.scene.presentation);
-      else if (!predicted) {
-        this.audio.onMobHit(mob, event.damage, this.scene.presentation);
-      }
-    } else if (target?.kind === "player" && !predicted) {
+      else this.audio.onMobHit(mob, event.damage, this.scene.presentation);
+    } else if (target?.kind === "player" && !skipAuthority) {
       const source = this.entities.find((entry) => entry.id === event.actorId);
       this.audio.onPlayerHit(
         {
