@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { protocolError } from "../../shared/protocol.js";
+import { DROP_OWNER_MS } from "../../shared/drop-protocol.js";
 import {
   DROP_MOTION,
   launchDrop,
@@ -17,8 +18,6 @@ import { familyRate } from "../../client/src/social/local-social-family.js";
 import { refreshPickupConditions } from "./drop-conditions.js";
 
 export const MAX_FIELD_DROPS = DROP_POLICY.capacity;
-// Authorized Cosmic server/maps/MapItem.java:131-156 releases ownership at 15 seconds.
-export const DROP_OWNER_MS = 15000;
 
 /** Shared authored floor selection; batch fanout falls back to its first supported floor. */
 export function dropGround(field, source, index = 0, first = null) {
@@ -61,8 +60,6 @@ export function prepareFieldDrop(world, actor, request) {
   drop.active = true;
   drop.ownerId = request.ownerId ?? actor.id;
   drop.ownerPartyId = actor.profile.social?.party?.id ?? null;
-  // Cosmic InventoryManipulator passes ffaDrop=true for player-created drops;
-  // majority-owned monster/reactor loot retains MapItem's 15-second protection.
   drop.ownerUntil = createdAt + (drop.playerDrop ? 0 : DROP_OWNER_MS);
   drop.createdAt = createdAt;
   drop.expiresAt =
@@ -387,5 +384,6 @@ export function dropInfo(drop) {
     expiresAt: drop.expiresAt,
     questId: drop.questId,
     disappearing: drop.disappearing,
+    playerDrop: !!drop.playerDrop,
   };
 }
