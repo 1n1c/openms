@@ -25,7 +25,7 @@ export function settleDisconnectedMovement(actor, stream) {
     return;
   }
   for (const grant of stream.grants) {
-    applyExternalImpulse(actor.simulation, grant.vx, grant.vy);
+    applyExternalImpulse(actor.simulation, grant.vx, grant.vy, null, grant.source === "hit");
   }
   const debt = Math.min(
     PROTOCOL.INPUT_HISTORY,

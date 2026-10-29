@@ -25,7 +25,10 @@ export class LocalHitMotion {
     if (this.sourceId || !prediction.ready || prediction.paused) return false;
     restoreMotion(this.simulation, captureMotion(prediction.simulation));
     // Original 009581a9/007a6353 hit impulse; shared kernel handles slopes and landing.
-    applyExternalImpulse(this.simulation, direction * 270, -270);
+    // preserveLadder=true: mob contact on a ladder deals damage but does not dismount.
+    // The copy simulation carries ladder state through step(); confirm() restoreMotion
+    // copies it back to the real sim without clobbering ladderId.
+    applyExternalImpulse(this.simulation, direction * 270, -270, null, true);
     this.vx = direction * 270;
     this.sourceId = sourceId;
     this.age = 0;

@@ -64,7 +64,7 @@ export function applyMovementImpulses(actor, references) {
     );
     if (index < 0) return false;
     const grant = stream.grants[index];
-    applyExternalImpulse(actor.simulation, grant.vx, grant.vy);
+    applyExternalImpulse(actor.simulation, grant.vx, grant.vy, null, grant.source === "hit");
     stream.grants.splice(index, 1);
   }
   return true;

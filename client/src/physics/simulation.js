@@ -239,11 +239,20 @@ export function setSimulationSeat(sim, seat) {
  *  apply, so it receives the same simulation and vector that are merged here.
  *  This single entry point is the only place an external impulse is merged, so the
  *  replayed client segment and the authoritative segment share one implementation. */
-export function applyExternalImpulse(sim, vx, vy, onBeforeImpulse = null) {
+export function applyExternalImpulse(sim, vx, vy, onBeforeImpulse = null, preserveLadder = false) {
   if (!Number.isFinite(vx) || !Number.isFinite(vy)) {
     throw new Error("Invalid external motion impulse");
   }
   if (onBeforeImpulse !== null) onBeforeImpulse(sim, vx, vy);
+  if (preserveLadder && sim.ladderId !== 0) {
+    // Mob contact damage on a ladder: keep climbing state, only a light horizontal
+    // jitter. Original MapleStory lets players climb through mob collisions; knockback
+    // (skills, projectiles, environment) still kicks the player off.
+    sim.vx = mergeImpulse(sim.vx, vx * 0.5);
+    sim.vy = 0;
+    updateAction(sim);
+    return;
+  }
   sim.seat = null;
   if (sim.state === "ground") {
     sim.vx = 0;
