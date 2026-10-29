@@ -1,5 +1,6 @@
 import { Container, Sprite } from "pixi.js";
 import { EquipmentEffects } from "../items/equipment-effects.js";
+import { AfterimageEffect } from "./afterimage-effect.js";
 import {
   compileAction,
   timedFrame,
@@ -11,6 +12,23 @@ import {
 const GHOST_PERIOD_MS = 2000;
 const GHOST_RADIUS = 10;
 const GHOST_CENTER_Y = -20;
+
+/** Blink scheduling — user-facing timing.
+ *  Every 5-8 s, roll a 4-way uniform decision:
+ *    0 → skip this round (no blink)
+ *    1 → 1 quick blink  (expressionLoopMs ≈ 480 ms)
+ *    2 → 2 quick blinks (≈ 960 ms total)
+ *    3 → 3 quick blinks (≈ 1440 ms total)
+ *  expressionLoopMs is the per-expression cycle from extracted data (480 ms for blink),
+ *  not the generic 5-second expressionDuration shared by all face expressions. */
+const BLINK_IDLE_MIN_MS = 5000;
+const BLINK_IDLE_RANGE_MS = 3000;
+const BLINK_MODES = 4;
+/** Body actions that suppress auto-blink — GM source keeps FaceCount ticking
+ *  but skips FaceFrame selection while climbing, so no face variant renders. */
+const BLINK_SUPPRESS_ACTIONS = new Set([
+  "ladder", "rope", "ladder2", "rope2",
+]);
 
 /** Shape2D51406ffa..51407045 rounds rotated vectors before adding their origin. */
 function vectorPixel(value) {
@@ -61,6 +79,16 @@ export class EntityAnimation {
     this.expressionDurations = new Map();
     this.actions = new Map();
     this.expressions = new Set(["default"]);
+    /** Auto-blink scheduling state. Only active for character entities that
+     *  have a compiled `blink` face expression. */
+    this.blinkState = {
+      /** Countdown until the next blink decision (ms). 0 = immediate decision. */
+      nextDecisionMs: 0,
+      /** Remaining consecutive blinks in the current run. */
+      remainingBlinks: 0,
+      /** True when a `blink` call is currently playing. */
+      blinking: false,
+    };
     this.tint = 0xffffff;
     this.container = new Container({ label: entity.id });
     this.setPosition(entity.x, entity.y);
@@ -85,6 +113,12 @@ export class EntityAnimation {
     this.frame = -1;
     this.actionTimeMs = 0;
     this.holdFrame = false;
+    // Transient melee afterimage effects — self-driven, auto-destroy.
+    this.afterimageEffects = [];
+    // Optional top-level container for afterimage effects (e.g. scene.overlays).
+    // When unset, effects attach to this.container and get y-sorted normally.
+    // When set, effects attach here and always render above all y-sorted siblings.
+    this._afterimageFxLayer = null;
     this.setAction(entity.action);
     this.equipmentEffects = entity.avatar?.equipmentEffect
       ? new EquipmentEffects(this, entity.avatar.equipmentEffect, textures)
@@ -150,6 +184,8 @@ export class EntityAnimation {
     this.completed = playback === "once" && next.duration === 0;
     this.frame = -1;
     this.selectTimedFrame();
+    // Try to spawn an afterimage effect for attack actions.
+    this.tryPlayAfterimage();
   }
 
   /** Original avatar tint does not propagate into independent name overlays. */
@@ -211,18 +247,104 @@ export class EntityAnimation {
   advance(ms) {
     const advanced = advanceActionClock(this, ms);
     this.advanceExpression(ms);
+    this.advanceBlink(ms);
     this.applyDeathMotion();
     this.equipmentEffects?.advance(ms);
     if (advanced) this.selectTimedFrame();
+    // Drive transient afterimage effects.
+    this.advanceAfterimages(ms);
+  }
+
+  /** Automatic blink scheduler for character entities that have a `blink` face
+   *  expression. Mirrors GM MapleCharacter.pas L1290-L1332 and sdlms run_face_animate:
+   *  4-mode random decision (0 = skip, 1..3 = consecutive blinks) every 5-8 s.
+   *  This runs ALWAYS (mirroring GM source which does NOT gate blink scheduling on
+   *  body pose). Non-default face expressions (player-triggered smile/wink/etc.)
+   *  suppress the blink scheduler so they play out completely. */
+  advanceBlink(ms) {
+    if (this.kind !== "character" || !this.expressions.has("blink")) return;
+
+    // Climbing: GM source skips FaceFrame selection entirely while on ladder/rope.
+    // Suppress auto-blink, and cancel any in-progress blink so the face snaps back.
+    if (BLINK_SUPPRESS_ACTIONS.has(this.action)) {
+      if (this.expression === "blink") {
+        this.setExpression("default", 0);
+        this.blinkState.blinking = false;
+      }
+      return;
+    }
+
+    // A blink is currently playing — let it finish. advanceExpression handles
+    // the duration countdown; we just mark blinking for the post-blink branch.
+    if (this.expression === "blink") {
+      this.blinkState.blinking = true;
+      return;
+    }
+
+    // Player-triggered non-default expression (smile, wink, oops, ...) takes
+    // full control — pause the idle blink scheduler but keep existing counters.
+    if (this.expression !== "default") return;
+
+    // Just returned from a blink to default — decide whether consecutive.
+    if (this.blinkState.blinking) {
+      this.blinkState.blinking = false;
+      if (this.blinkState.remainingBlinks > 1) {
+        this.blinkState.remainingBlinks -= 1;
+        this._triggerBlink();
+        return;
+      }
+      // Final blink in the round — reset counters, schedule next decision.
+      this.blinkState.remainingBlinks = 0;
+      this.blinkState.nextDecisionMs =
+        BLINK_IDLE_MIN_MS + Math.random() * BLINK_IDLE_RANGE_MS;
+      return;
+    }
+
+    // Regular scheduler countdown. Always runs regardless of body action.
+    if (this.blinkState.nextDecisionMs > 0) {
+      this.blinkState.nextDecisionMs -= ms;
+      if (this.blinkState.nextDecisionMs > 0) return;
+      this.blinkState.nextDecisionMs = 0;
+    }
+
+    // 4-way uniform roll: 0 = skip, 1 = single, 2 = double, 3 = triple.
+    const mode = Math.floor(Math.random() * BLINK_MODES);
+    if (mode === 0) {
+      this.blinkState.nextDecisionMs =
+        BLINK_IDLE_MIN_MS + Math.random() * BLINK_IDLE_RANGE_MS;
+      return;
+    }
+    this.blinkState.remainingBlinks = mode;
+    this._triggerBlink();
+  }
+
+  _triggerBlink() {
+    // expressionLoops holds the authored per-expression cycle (480 ms for blink
+    // from extracted data), while expressionDuration is a generic 5-second
+    // max-lifetime shared by ALL face expressions — not the blink animation
+    // duration. GM source uses a multi-frame FaceFrame/FaceTime mechanism; we
+    // collapse it into one expressionLoopMs cycle here.
+    const loopMs = this.expressionLoops.get("blink");
+    const duration = Number.isFinite(loopMs) && loopMs > 0
+      ? loopMs
+      : this.expressionDurations.get("blink");
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    this.setExpression("blink", duration);
   }
 
   /** Seek an authoritative action clock without exposing mutable frame bookkeeping.
    * Resuming a completed one-shot at an earlier time clears completion.
    * @param {number} ms Elapsed milliseconds since the current action began. */
   seek(ms) {
+    // Compute delta from last seek time for afterimage effect driving.
+    const prev = this.actionTimeMs;
     seekActionClock(this, ms);
     this.selectTimedFrame();
     this.applyDeathMotion();
+    // Drive afterimage effects with the delta between seeks.
+    if (prev >= 0 && ms > prev) {
+      this.advanceAfterimages(ms - prev);
+    }
   }
 
   selectTimedFrame() {
@@ -255,6 +377,84 @@ export class EntityAnimation {
     }
     this.applyDeathMotion();
     this.equipmentEffects?.sync();
+  }
+
+  /** Real-time afterimage management — deferred spawn based on attack frame. */
+
+  /** Called from setAction. Schedules afterimage particles for attack actions. */
+  tryPlayAfterimage() {
+    // Clear any pending spawns from previous action.
+    this._pendingAfterimageSpawns = null;
+
+    // Gate: only character animations have combat data.
+    if (this.kind !== "character") return;
+    // Gate: action must be a known attack family.
+    const action = this.action;
+    const ATTACK_PREFIXES = ["swing", "stab", "shoot", "throw", "hit", "attack", "proneStab"];
+    if (!ATTACK_PREFIXES.some((p) => action.startsWith(p))) return;
+
+    const combat = this.avatar?.combat;
+    if (!combat) return;
+    const attack = combat.attacks?.[action];
+    const framesByFacing = attack?.afterimage;
+    if (!framesByFacing) return;
+
+    // Afterimage data is authored facing-right (facing=1). Parent actor.container.scale.x
+    // auto-mirrors for facing-left, so we always consume facing=1 and never manually flip.
+    const aiFrames = framesByFacing[1] ?? framesByFacing[0];
+    if (!aiFrames?.length) return;
+
+    // Sort by spawnFrame ascending so we spawn in order.
+    const sorted = [...aiFrames].sort((a, b) => (a.spawnFrame ?? 0) - (b.spawnFrame ?? 0));
+    this._pendingAfterimageSpawns = sorted;
+  }
+
+  /** Called every advance()/seek(). Spawns afterimage particles whose spawnFrame <= current frame,
+   *  drives all live particles, cleans up completed ones. */
+  advanceAfterimages(ms) {
+    // 1) Deferred spawn check — run each frame until queue consumed.
+    const pending = this._pendingAfterimageSpawns;
+    if (pending && pending.length > 0) {
+      const fxMode = !!this._afterimageFxLayer;
+      const isMirrored = this.container.scale.x < 0;
+      while (pending.length > 0 && this.frame >= pending[0].spawnFrame) {
+        const frameData = pending.shift();
+        const layer = this._afterimageFxLayer ?? this.container;
+        // In fx mode, afterimage is detached from actor.container so it won't inherit scale.x mirror.
+        // Pre-flip x coords manually when mirrored.
+        let adjustedFrame = frameData;
+        if (fxMode && isMirrored) {
+          adjustedFrame = {
+            ...frameData,
+            parts: frameData.parts.map((p) => ({ ...p, x: -p.x })),
+          };
+        }
+        const anchor = fxMode ? { x: this.container.x, y: this.container.y } : { x: 0, y: 0 };
+        const effect = new AfterimageEffect(layer, adjustedFrame, this.textures, {
+          anchorX: anchor.x,
+          anchorY: anchor.y,
+          flip: false,
+          z: 1000,
+        });
+        // IMPORTANT: Don't sync position every frame — afterimage stays at spawn position.
+        this.afterimageEffects.push(effect);
+      }
+      if (pending.length === 0) this._pendingAfterimageSpawns = null;
+    }
+
+    // 2) Drive all live particles — just advance time, don't move.
+    if (this.afterimageEffects.length === 0) return;
+    const alive = [];
+    for (const effect of this.afterimageEffects) {
+      const done = effect.advance(ms);
+      if (!done) alive.push(effect);
+    }
+    this.afterimageEffects = alive;
+  }
+
+  /** External call to make afterimage effects float above y-sort siblings (e.g. monsters). */
+  setAfterimageLayer(layer) {
+    this._afterimageFxLayer = layer;
   }
 
   /** 004522a6 + Gr2D5040d98b reflect final rotated vertices around the actor origin. */

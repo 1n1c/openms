@@ -184,7 +184,7 @@ export function projectileTargetDistance(body, origin, range, start = 0) {
 /** Shared extraction/preparation/admission boundary; never defer malformed art until durable equip. */
 export function validateWeaponCombat(combat) {
   if (combat === null) return combat;
-  if (combat?.schemaVersion !== 2) {
+  if (combat?.schemaVersion !== 2 && combat?.schemaVersion !== 3) {
     throw new Error("Invalid original equipped combat metadata");
   }
   validateCombatEquipment(combat.equipment);

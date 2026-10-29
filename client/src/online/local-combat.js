@@ -99,7 +99,13 @@ export class LocalCombat {
     this.active = record;
     this.owner.scene.actor.setAction(record.action, "once", true);
     if (record.sfx) {
-      this.owner.audio.onPlayerAttack(record.sfx);
+      // Delay sound to beat/release time — matches sdlMS load_sfx() which
+      // delays audio by afterimage_game_instance::load_beat_time().
+      // This syncs sound with afterimage visually appearing.
+      setTimeout(() => {
+        if (record.rejected) return; // Only skip on server rejection — play on confirmation (soundEcho blocks server echo)
+        this.owner.audio.onPlayerAttack(record.sfx);
+      }, record.release);
       record.soundPlayed = true;
     }
     this.projectiles.begin(record);

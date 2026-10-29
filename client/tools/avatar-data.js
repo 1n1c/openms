@@ -407,7 +407,7 @@ export async function extractAvatarRecord(
   const node = context.image("Character", input.path);
   const record = recordMetadata(node, input, maps);
   record.combat = input.path.startsWith("Weapon/")
-    ? extractWeaponCombat(context, input.id)
+    ? await extractWeaponCombat(context, input.id)
     : null;
   //0041272c explicitly excludes mount/saddle/dragon positions18..20 from ordinary avatars.
   if (excludedOrdinaryEquipment(input, record)) {

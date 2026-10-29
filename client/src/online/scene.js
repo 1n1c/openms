@@ -609,6 +609,11 @@ export class OnlineScene {
       },
       resources.textures,
     );
+    // Make melee afterimages float above y-sort siblings (monsters, other actors).
+    if (entity.kind === "character") {
+      const overlays = this.scene?.overlays ?? this.overlays;
+      if (overlays) animation.setAfterimageLayer(overlays);
+    }
     return {
       animation,
       life,
