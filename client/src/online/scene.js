@@ -357,7 +357,14 @@ export class OnlineScene {
     if (entity.kind === "player") {
       observeWorldCharacter(view, entity, Date.now());
     }
-    view.animation.setTint(entity.combatState?.tint ?? 0xffffff);
+    // Remote players: the server's combatState.tint carries the blink TTL but
+    // blink is a local-only feedback (GM original behaviour). LocalIncoming.drawSelf
+    // already covers our own player's tint every frame — nothing for peers.
+    if (entity.kind === "player" && entity.id !== this.selfId) {
+      view.animation.setTint(0xffffff);
+    } else {
+      view.animation.setTint(entity.combatState?.tint ?? 0xffffff);
+    }
     view.animation.container.alpha = entity.mobState?.opacity ?? 1;
     if (entity.mobState) {
       view.animation.container.visible = entity.mobState.bodyVisible;

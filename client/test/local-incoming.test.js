@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { LocalIncoming } from "../src/online/local-incoming.js";
 import { animationId } from "../../shared/motion-schema.js";
+import { PLAYER_HIT } from "../../shared/combat-protocol.js";
 
 const MOB_BODY = { left: -90, top: -60, right: 90, bottom: 0 };
 
@@ -154,7 +155,7 @@ test("a released mob swing against the local player shows its digit at the autho
   expect(f.shown[0].family).toBe(2);
   expect(f.shown[0].amount).toBeGreaterThan(0);
   // The authored flinch face starts on the same frame.
-  expect(f.self.faces).toEqual([{ name: "hit", duration: 1500 }]);
+  expect(f.self.faces).toEqual([{ name: "hit", duration: PLAYER_HIT.timerMs }]);
   // The same attack instance cannot be resolved twice.
   f.incoming.observe(f.view, 100);
   expect(f.shown.length).toBe(1);
@@ -234,7 +235,7 @@ test("a body-attack mob resolves contact damage on the first overlapping frame",
   expect(f.shown.length).toBe(1);
   expect(f.shown[0].family).toBe(2);
   expect(f.shown[0].amount).toBeGreaterThan(0);
-  expect(f.self.faces).toEqual([{ name: "hit", duration: 1500 }]);
+  expect(f.self.faces).toEqual([{ name: "hit", duration: PLAYER_HIT.timerMs }]);
 });
 
 test("contact damage shares the hit window instead of ticking every frame", () => {
@@ -300,7 +301,7 @@ test("many nearby mobs share one frame clock and cannot shorten hit protection",
     for (let mob = 0; mob < 30; mob++) f.incoming.observe(view, 30);
   }
   expect(f.shown).toHaveLength(1);
-  expect(f.incoming.contactCooldownMs).toBe(900);
+  expect(f.incoming.contactCooldownMs).toBe(PLAYER_HIT.timerMs - 600);
 });
 
 test("dead or spawning mobs cannot predict contact and field teardown clears protection", () => {

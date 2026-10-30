@@ -1,3 +1,4 @@
+import { PLAYER_HIT } from "../../../shared/combat-protocol.js";
 import { PhysicalDamage } from "../combat/physical-damage.js";
 import {
   overlaps,
@@ -14,7 +15,11 @@ const PRONE_BODY = { left: -46, top: -31, right: 0, bottom: 0 };
 const PREDICTION_TTL_MS = 4000;
 /** `PLAYER_HIT.timerMs` in offline-field.js; the flinch face and the shared hit window
  *  (`rejectsHit` refuses another incoming outcome while `hitTimerMs !== 0`). */
-const HIT_EXPRESSION_MS = 1500;
+const HIT_EXPRESSION_MS = PLAYER_HIT.timerMs;
+const BLINK_TICK_MS = PLAYER_HIT.tickMs;
+const BLINK_PHASE_MS = PLAYER_HIT.tickMs * PLAYER_HIT.ticksPerPhase;
+const BLINK_NORMAL = PLAYER_HIT.normalTint;
+const BLINK_HIT = PLAYER_HIT.hitTint;
 const MAX_PENDING = 32;
 const MAX_ARMS = 256;
 
@@ -36,6 +41,11 @@ export class LocalIncoming {
     this.contactCooldownMs = 0;
     this.hitRemainingMs = 0;
     this.presentedAt = null;
+    /** Fixed-tick blink phase, driven by BLINK_TICK_MS accumulator. Mirrors
+     *  OfflineField.blinkCounter exactly — the same 4-phase [GRAY, WHITE, WHITE, GRAY]
+     *  cycle, reset when the hit window actually opens. */
+    this.blinkPhase = 0;
+    this.blinkAccumulator = 0;
   }
 
   bind() {
@@ -49,16 +59,30 @@ export class LocalIncoming {
   advance(elapsed) {
     this.contactCooldownMs = Math.max(0, this.contactCooldownMs - elapsed);
     this.hitRemainingMs = Math.max(0, this.hitRemainingMs - elapsed);
+    // Fixed-tick blink phase mirrors the authority: one phase per BLINK_PHASE_MS quantum,
+    // regardless of render-frame jitter.
+    if (this.hitRemainingMs > 0) {
+      this.blinkAccumulator += elapsed;
+      while (this.blinkAccumulator >= BLINK_PHASE_MS) {
+        this.blinkAccumulator -= BLINK_PHASE_MS;
+        this.blinkPhase = (this.blinkPhase + 1) & 3;
+      }
+    } else {
+      this.blinkAccumulator = 0;
+    }
     this.prune();
   }
 
+  /** Sets the final actor tint for this render frame. MUST run every frame because
+   *  drawSelfPose → updateActor → setTint(0xffffff) zeroes the tint before us.
+   *  Uses the identical 2-phase cycle as OfflineField so every hit's blink is
+   *  consistent: GRAY → WHITE → GRAY → WHITE (alternate), 30ms per phase, 1500ms total. */
   drawSelf(view) {
-    const blinking =
-      this.hitRemainingMs > 0 &&
-      Math.floor((HIT_EXPRESSION_MS - this.hitRemainingMs) / 30) % 4 < 2;
-    view.animation.setTint(
-      blinking ? 0x808080 : (view.entity.combatState?.tint ?? 0xffffff),
-    );
+    let tint = BLINK_NORMAL;
+    if (this.hitRemainingMs > 0 && (this.blinkPhase & 1) === 0) {
+      tint = BLINK_HIT;
+    }
+    view.animation.setTint(tint);
   }
 
   /** The online scene owns the entity views. */
@@ -255,7 +279,12 @@ export class LocalIncoming {
   }
 
   feedback(view, source, amount, attackAction) {
+    const prevRemaining = this.hitRemainingMs;
     this.hitRemainingMs = HIT_EXPRESSION_MS;
+    if (prevRemaining <= 0) {
+      this.blinkPhase = 0;
+      this.blinkAccumulator = 0;
+    }
     this.motion?.begin(source.entity.id, view.drawX >= source.drawX ? 1 : -1);
     this.combat.owner.audio?.onPlayerHit(
       {
@@ -318,6 +347,8 @@ export class LocalIncoming {
     this.motion?.destroy();
     this.motion = null;
     this.contactCooldownMs = this.hitRemainingMs = 0;
+    this.blinkPhase = 0;
+    this.blinkAccumulator = 0;
     this.clocks.clear();
     this.armed.clear();
     this.pending.clear();
