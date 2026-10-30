@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 export async function buildStudio({ write = false } = {}) {
   const root = resolve(import.meta.dir, "..");
@@ -20,7 +20,7 @@ export async function buildStudio({ write = false } = {}) {
   }
   const assets = new Map();
   for (const output of result.outputs) {
-    assets.set(`/studio/${output.path.split("/").at(-1)}`, {
+    assets.set(`/studio/${basename(output.path)}`, {
       bytes: await output.arrayBuffer(),
       type: "text/javascript",
     });
