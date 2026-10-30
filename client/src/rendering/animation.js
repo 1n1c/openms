@@ -1,5 +1,6 @@
 import { Container, Sprite } from "pixi.js";
 import { EquipmentEffects } from "../items/equipment-effects.js";
+import { AfterimageEffect } from "./afterimage-effect.js";
 import {
   compileAction,
   timedFrame,
@@ -112,6 +113,12 @@ export class EntityAnimation {
     this.frame = -1;
     this.actionTimeMs = 0;
     this.holdFrame = false;
+    // Transient melee afterimage effects — self-driven, auto-destroy.
+    this.afterimageEffects = [];
+    // Optional top-level container for afterimage effects (e.g. scene.overlays).
+    // When unset, effects attach to this.container and get y-sorted normally.
+    // When set, effects attach here and always render above all y-sorted siblings.
+    this._afterimageFxLayer = null;
     this.setAction(entity.action);
     this.equipmentEffects = entity.avatar?.equipmentEffect
       ? new EquipmentEffects(this, entity.avatar.equipmentEffect, textures)
@@ -177,6 +184,8 @@ export class EntityAnimation {
     this.completed = playback === "once" && next.duration === 0;
     this.frame = -1;
     this.selectTimedFrame();
+    // Try to spawn an afterimage effect for attack actions.
+    this.tryPlayAfterimage();
   }
 
   /** Original avatar tint does not propagate into independent name overlays. */
@@ -253,7 +262,8 @@ export class EntityAnimation {
     this.advanceBlink(ms);
     this.applyDeathMotion();
     this.equipmentEffects?.advance(ms);
-    this.advanceAfterimages?.(ms);
+    // Drive transient afterimage effects.
+    this.advanceAfterimages(ms);
   }
 
   /** Automatic blink scheduler for character entities that have a `blink` face
@@ -337,9 +347,15 @@ export class EntityAnimation {
    * Resuming a completed one-shot at an earlier time clears completion.
    * @param {number} ms Elapsed milliseconds since the current action began. */
   seek(ms) {
+    // Compute delta from last seek time for afterimage effect driving.
+    const prev = this.actionTimeMs;
     seekActionClock(this, ms);
     this.selectTimedFrame();
     this.applyDeathMotion();
+    // Drive afterimage effects with the delta between seeks.
+    if (prev >= 0 && ms > prev) {
+      this.advanceAfterimages(ms - prev);
+    }
   }
 
   selectTimedFrame() {
@@ -372,6 +388,84 @@ export class EntityAnimation {
     }
     this.applyDeathMotion();
     this.equipmentEffects?.sync();
+  }
+
+  /** Real-time afterimage management — deferred spawn based on attack frame. */
+
+  /** Called from setAction. Schedules afterimage particles for attack actions. */
+  tryPlayAfterimage() {
+    // Clear any pending spawns from previous action.
+    this._pendingAfterimageSpawns = null;
+
+    // Gate: only character animations have combat data.
+    if (this.kind !== "character") return;
+    // Gate: action must be a known attack family.
+    const action = this.action;
+    const ATTACK_PREFIXES = ["swing", "stab", "shoot", "throw", "hit", "attack", "proneStab"];
+    if (!ATTACK_PREFIXES.some((p) => action.startsWith(p))) return;
+
+    const combat = this.avatar?.combat;
+    if (!combat) return;
+    const attack = combat.attacks?.[action];
+    const framesByFacing = attack?.afterimage;
+    if (!framesByFacing) return;
+
+    // Afterimage data is authored facing-right (facing=1). Parent actor.container.scale.x
+    // auto-mirrors for facing-left, so we always consume facing=1 and never manually flip.
+    const aiFrames = framesByFacing[1] ?? framesByFacing[0];
+    if (!aiFrames?.length) return;
+
+    // Sort by spawnFrame ascending so we spawn in order.
+    const sorted = [...aiFrames].sort((a, b) => (a.spawnFrame ?? 0) - (b.spawnFrame ?? 0));
+    this._pendingAfterimageSpawns = sorted;
+  }
+
+  /** Called every advance()/seek(). Spawns afterimage particles whose spawnFrame <= current frame,
+   *  drives all live particles, cleans up completed ones. */
+  advanceAfterimages(ms) {
+    // 1) Deferred spawn check — run each frame until queue consumed.
+    const pending = this._pendingAfterimageSpawns;
+    if (pending && pending.length > 0) {
+      const fxMode = !!this._afterimageFxLayer;
+      const isMirrored = this.container.scale.x < 0;
+      while (pending.length > 0 && this.frame >= pending[0].spawnFrame) {
+        const frameData = pending.shift();
+        const layer = this._afterimageFxLayer ?? this.container;
+        // In fx mode, afterimage is detached from actor.container so it won't inherit scale.x mirror.
+        // Pre-flip x coords manually when mirrored.
+        let adjustedFrame = frameData;
+        if (fxMode && isMirrored) {
+          adjustedFrame = {
+            ...frameData,
+            parts: frameData.parts.map((p) => ({ ...p, x: -p.x })),
+          };
+        }
+        const anchor = fxMode ? { x: this.container.x, y: this.container.y } : { x: 0, y: 0 };
+        const effect = new AfterimageEffect(layer, adjustedFrame, this.textures, {
+          anchorX: anchor.x,
+          anchorY: anchor.y,
+          flip: false,
+          z: 1000,
+        });
+        // IMPORTANT: Don't sync position every frame — afterimage stays at spawn position.
+        this.afterimageEffects.push(effect);
+      }
+      if (pending.length === 0) this._pendingAfterimageSpawns = null;
+    }
+
+    // 2) Drive all live particles — just advance time, don't move.
+    if (this.afterimageEffects.length === 0) return;
+    const alive = [];
+    for (const effect of this.afterimageEffects) {
+      const done = effect.advance(ms);
+      if (!done) alive.push(effect);
+    }
+    this.afterimageEffects = alive;
+  }
+
+  /** External call to make afterimage effects float above y-sort siblings (e.g. monsters). */
+  setAfterimageLayer(layer) {
+    this._afterimageFxLayer = layer;
   }
 
   /** 004522a6 + Gr2D5040d98b reflect final rotated vertices around the actor origin. */
