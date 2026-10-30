@@ -131,7 +131,11 @@ function recordCommand(value) {
 }
 
 function sendInput(sample) {
-  const sequence = transport.sendInput(sample);
+  const sequence = transport.sendInput(
+    ui?.localCombat?.suppressAttack()
+      ? { ...sample, attack: false }
+      : sample,
+  );
   if (sequence) ui?.localCombat.input(sample, sequence);
   return sequence;
 }
