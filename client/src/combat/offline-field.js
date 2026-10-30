@@ -231,14 +231,19 @@ export class OfflineField {
   }
 
   /** 00936d99: only the grounded idle selector substitutes encoded8 for4.
-   * Walking, crouching, airborne motion, climbing and seats keep their posture. */
+   * Walking, crouching, airborne motion, climbing and seats keep their posture.
+   * Use alertTimerMs directly instead of alertPosture so the getter returns
+   * "alert" the instant phase flips to idle — before advanceAlert runs —
+   * avoiding a one-tick null→stand transition that would otherwise flicker
+   * through the published entity.action and reset the swing animation on the
+   * final frame. */
   get alerting() {
     const action = this.simulation.action;
     return (
       this.phase === "idle" &&
       this.simulation.state === "ground" &&
       !this.simulation.seat &&
-      this.alertPosture &&
+      this.alertTimerMs > 0 &&
       (action === "stand1" || action === "stand2")
     );
   }
@@ -1351,17 +1356,20 @@ export class OfflineField {
 
   /** Resolve the movement action before Avatar004522a6 and recovery00a02e34.
    * Hits only write the timer; the next idle selector chooses alert artwork.
-   * The countdown clamps on negative crossing:5000 lasts167 original30-ms ticks. */
+   * The countdown clamps on negative crossing:5000 lasts167 original30-ms ticks.
+   * alertPosture is kept for offline-field snapshots but alerting uses the
+   * timer directly so phase-flip-to-idle publishes the correct action. */
   advanceAlert() {
-    const action = this.simulation.action;
-    this.alertPosture =
-      this.alertTimerMs > 0 && (action === "stand1" || action === "stand2");
-    if (this.alertTimerMs <= 0) return;
+    if (this.alertTimerMs <= 0) {
+      this.alertPosture = false;
+      return;
+    }
     this.alertTimerMs -= PLAYER_HIT.tickMs;
     if (this.alertTimerMs < 0) {
       this.alertTimerMs = 0;
-      this.alertPosture = false;
     }
+    const action = this.simulation.action;
+    this.alertPosture = (action === "stand1" || action === "stand2");
   }
 
   changed() {

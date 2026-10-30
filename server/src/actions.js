@@ -152,7 +152,40 @@ function dispatchInventoryMutation(actor, message, world, operation) {
   }
 }
 
+/** Actions the server rejects while the player is in alert (post-attack/hit
+ *  combat posture). Mirror native MapleStory where the ~5s recovery stance
+ *  freezes inventory/character-mutation affordances so the player cannot
+ *  discard gear, trade items, reassign stats or unequip mid-fight. */
+const ALERT_BLOCKED_ACTIONS = new Set([
+  "equipment.equip",
+  "equipment.unequip",
+  "equipment.scroll",
+  "item.drop",
+  "mesos.drop",
+  "stats.allocate",
+  "skills.allocate",
+  "seat.toggle",
+  "expression.use",
+  "expression.cash",
+]);
+const ALERT_BLOCKED_DOMAINS = new Set(["trade"]);
+
+function blockedByAlert(actor, actionKind, domain) {
+  const field = actor.skillField;
+  if (!field || field.alertTimerMs <= 0) return false;
+  if (ALERT_BLOCKED_ACTIONS.has(actionKind)) return true;
+  if (ALERT_BLOCKED_DOMAINS.has(domain)) return true;
+  return false;
+}
+
 function dispatch(actor, message, world, operation) {
+  // Alert posture blocks inventory/character mutations — see ALERT_BLOCKED_ACTIONS.
+  if (blockedByAlert(actor, message.action.kind, operation.domain)) {
+    reject(
+      "NOT_ALLOWED",
+      "Cannot change equipment, discard items, trade, reassign stats, emote or sit while recovering from combat.",
+    );
+  }
   if (DOMAIN_INTERACTIONS.has(message.action.kind)) {
     return executeInteraction(actor, message, world);
   }

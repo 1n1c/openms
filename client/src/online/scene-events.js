@@ -128,6 +128,11 @@ export class SceneEvents {
     if (required > numbers.capacity) this.combat.growNumbers(required);
   }
   damage(event) {
+    // Track this player's outgoing damage so only the attacker sees the mob HP bar.
+    // Pure-client: no server/protocol change needed.
+    if (event.actorId === this.owner.selfId && event.damage > 0) {
+      this.owner._myMobHits.set(event.targetId, performance.now());
+    }
     this.impact(event, {
       targetId: event.targetId,
       outcome: event.damage > 0 ? "hit" : "miss",
