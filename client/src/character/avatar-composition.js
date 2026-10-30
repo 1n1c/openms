@@ -129,6 +129,13 @@ export const AVATAR_ACTIONS = Object.freeze([
   "burster1",
   "burster2",
 ]);
+
+/** Actions where the character is viewed from behind — GM sets pose.face=false
+ *  so face/eye parts don't render through the back of the head. */
+const FACE_HIDDEN_ACTIONS = Object.freeze(new Set([
+  "ladder", "rope", "ladder2", "rope2",
+]));
+
 export const AVATAR_LIMITS = Object.freeze({
   items: 64,
   parts: 256,
@@ -541,7 +548,8 @@ function selectedFrame(record, pose, selection, expression) {
     return null;
   }
   if (record.kind === "face" || record.expressionDriven) {
-    if (!pose.face) return null;
+    // if (!pose.face) return null;
+    if (!pose.face && FACE_HIDDEN_ACTIONS.has(pose.action)) return null;
     return expressionFrame(record, expression);
   }
   return actionFrame(record, pose, selection);
@@ -646,7 +654,8 @@ function framePartsFor(records, pose, selection, expressions) {
     }
     if (candidate.visible) parts.push(renderedPart(candidate, null));
   }
-  if (pose.face) {
+  // if (pose.face) {
+  if (pose.face || !FACE_HIDDEN_ACTIONS.has(pose.action)) {
     for (const expression of expressions) {
       for (const candidate of candidatesFor(
         records,

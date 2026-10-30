@@ -629,10 +629,10 @@ export class OnlineScene {
   pose(view, x, y) {
     const { entity, animation } = view;
     animation.setPosition(x, y);
+    // Climbing poses use authored back-facing art — never mirror those.
+    const climbAction = CLIMB_ACTIONS.has(entity.action);
     animation.container.scale.x =
-      entity.kind !== "drop" && (view.presentedMotion ?? entity).facing > 0
-        ? -1
-        : 1;
+      climbAction || entity.kind === "drop" || entity.facing <= 0 ? 1 : -1;
     if (view.name) view.name.step(this.app.renderer.resolution);
     if (view.mobName) view.mobName.scale.x = animation.container.scale.x;
     if (view.mobHpBar) view.mobHpBar.scale.x = animation.container.scale.x;
@@ -1020,6 +1020,15 @@ export class OnlineScene {
       view.entity.id === this.selfId &&
       this.localCombat?.draw(view.animation)
     ) {
+      // Attack actions drive the body with seek() (localCombat.draw sets action
+      // and seeks to the authoritative weapon-time position), skipping the normal
+      // advance() path that runs the face clock. Advance auxiliary systems
+      // (blink scheduler, face expression timer, equipment effects, afterimages)
+      // so they keep running regardless of body pose — matches GM source where
+      // FaceCount ticks independently. Uses optional chaining so callers on
+      // branches that predate advanceAuxiliary (pre- blink-and-climb merge)
+      // safely no-op.
+      view.animation.advanceAuxiliary?.(step);
       return;
     }
     view.animation.advance(step);
