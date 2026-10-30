@@ -120,7 +120,9 @@ export function lifeEntity(entity, kind) {
       : {}),
     position: { x: entity.x, y: entity.y },
     velocity: { x: 0, y: 0 },
-    foothold: entity.segment?.id ?? null,
+    // Mob entities (from offline-mobs.js) carry `.foothold` (the current segment),
+    // NPC entities use `.segment`. Both have an `.id` field when set.
+    foothold: (entity.foothold ?? entity.segment)?.id ?? null,
     facing: entity.facing ?? -1,
     action: animationId(entity.action ?? "stand"),
     actionStartTick: entity.actionStartTick ?? 0,
