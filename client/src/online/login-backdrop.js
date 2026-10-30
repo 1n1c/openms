@@ -8,6 +8,14 @@ import { LoginCursor } from "./login-cursor.js";
 const BUTTON_STATES = ["normal", "mouseOver", "pressed", "disabled"];
 const MAX_SURFACES = 48;
 const CHARACTER_ORIGINS = ["adventure", "knight", "aran"];
+
+// Known extract-origin drift: some login artworks have the sprite visual anchor
+// a few pixels below the manifest-computed origin. Nudge the whole panel (sprite
+// bundle + DOM click rect together) so the authored MapleStory layout is
+// preserved. Patch at runtime — extract will regenerate manifest on every run.
+const PANEL_TOP_ADJUST = Object.freeze({
+  "CharSelect/BtSelect": 2, // character-select "Enter Game" button drifts up 2px
+});
 // 005fc0e4: centerY=-8-600*stage. Explorer creation adds race substate1.
 const STAGES = Object.freeze({
   account: { index: 0, centerY: -8 },
@@ -374,6 +382,8 @@ export class LoginBackdrop {
       [normal.width, normal.height],
       resource,
     );
+    const adjust = PANEL_TOP_ADJUST[path];
+    if (adjust) panel.element.style.top = `${adjust}px`;
     const entry = {
       button,
       panel,
