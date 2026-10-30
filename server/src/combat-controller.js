@@ -1,4 +1,5 @@
 import { OfflineField } from "../../client/src/combat/offline-field.js";
+import { overlaps, placeBody } from "../../client/src/world/life-geometry-numeric.js";
 import { updateHitboxes } from "../../client/src/physics/hitboxes.js";
 import { admitActor } from "./action-rules.js";
 import { combatOperation, rewardKill } from "./combat-rewards.js";
@@ -47,6 +48,83 @@ export class AuthorityCombat extends OfflineField {
     this.actor.actionStartTick = this.actor.field.tick;
     this.projectActor();
   }
+
+  /** Client-authoritative target selection. The client and server legitimately pick
+   *  different "closest" mobs because the client uses drawX (interpolated render)
+   *  while the server uses mob.x with lag-compensation rewind ticks. When both sides
+   *  pick 1 target but different ones, the player sees a number on mob-A while mob-B
+   *  loses HP — which is unacceptable.
+   *
+   *  The client already rolls damage, renders numbers, reports { targetId, damage, critical }
+   *  via reportHits. The server should TRUST the client's targetId for selection, but
+   *  still validate (mob alive? in attack body overlap?) and still roll its own damage
+   *  numbers for HP/death. */
+  playerImpact() {
+    this.attackFired = true;
+    if (this.attackSkill) {
+      this.skillCombat.impact();
+      return;
+    }
+    if (this.weaponUse.ranged) {
+      this.launchProjectile();
+      return;
+    }
+    const sim = this.simulation;
+    placeBody(this.attackBody, this.attack.rectangle, sim, sim.facing > 0);
+
+    // 1. Try client-reported targets — trust the client's selection
+    const identity = this.feedbackId ?? this.feedbackInputSeq ?? null;
+    const report = identity !== null
+      ? this.actor.hitReports?.get(String(identity))
+      : null;
+    if (report?.lines?.size) {
+      const validTargets = [];
+      const seenIds = new Set();
+      for (const lineKey of report.lines.keys()) {
+        const [targetId] = lineKey.split(":");
+        if (seenIds.has(targetId)) continue;
+        seenIds.add(targetId);
+        const mob = this.mobs.find((m) => m.id === targetId);
+        // Client-authoritative: trust the client's geometry check. Server only
+        // validates that the mob exists and is attackable (alive, active, not faulted).
+        // We deliberately skip overlaps() here — server physics may have drifted from
+        // client render positions by the time playerImpact fires, causing false rejects.
+        if (!mob || !this.canAttackMob(mob)) continue;
+        validTargets.push(mob);
+      }
+      if (validTargets.length > 0) {
+        validTargets.sort((a, b) => Math.abs(a.x - sim.x) - Math.abs(b.x - sim.x));
+        for (let i = 0; i < validTargets.length; i++) {
+          this.attackTargets[i] = validTargets[i];
+          this.targetDistances[i] = Math.abs(validTargets[i].x - sim.x);
+        }
+        this.generateDamageLines(validTargets.length);
+        this.mobHit.reportId = identity;
+        for (let index = 0; index < validTargets.length; index++) {
+          this.mobHit.critical = !!this.damageCritical[index];
+          this.damageTarget(validTargets[index], this.damageLines[index]);
+        }
+        return;
+      }
+    }
+
+    // 2. Fallback: original server-side selection (no client report or report invalid)
+    const reactorHit = this.hooks.onStrike?.(this.attackBody, sim.facing, 0);
+    const count = this.selectAttackTargets(this.attackInfo?.mobCount ?? 1);
+    if (!count) {
+      this.lastStatus = reactorHit
+        ? "local reactor hit"
+        : "local impact: no eligible original body";
+      return;
+    }
+    this.generateDamageLines(count);
+    this.mobHit.reportId = identity;
+    for (let index = 0; index < count; index++) {
+      this.mobHit.critical = !!this.damageCritical[index];
+      this.damageTarget(this.attackTargets[index], this.damageLines[index]);
+    }
+  }
+
   damageTarget(
     target,
     generated,
@@ -152,14 +230,18 @@ export class AuthorityCombat extends OfflineField {
     return true;
   }
 
-  /** One authored proposal per shared mob plus the current fall/contact head. */
-  acceptIncoming(source, magic, action, release = null) {
+  /** One authored proposal per shared mob plus the current fall/contact head.
+   *  When preComputedOutcome is provided (Phase 4 RNG sync route A), it is used
+   *  directly as the prepared outcome — one RNG roll = one truth, no re-roll. */
+  acceptIncoming(source, magic, action, release = null, preComputedOutcome = null) {
     if (this.incoming.length >= this.mobs.length + 1) {
       throw protocolError("SERVER_BUSY");
     }
-    const prepared = hasMobStatus(source, "inert")
-      ? this.prepareHypnotizedImpact(source, action)
-      : null;
+    const prepared = preComputedOutcome
+      ? preComputedOutcome
+      : hasMobStatus(source, "inert")
+        ? this.prepareHypnotizedImpact(source, action)
+        : null;
     this.incoming.push({
       source,
       magic,

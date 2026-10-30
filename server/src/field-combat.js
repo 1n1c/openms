@@ -352,14 +352,50 @@ function releaseSharedMobAttack(field, mob) {
   if (!recipients.length) return;
   const source = recipients[0].captureIncomingSource(mob);
   mob.incomingDeliveries = recipients.length;
-  for (const runtime of recipients) {
+
+  // Phase 4 (RNG sync, route A): pre-compute incoming damage for every recipient
+  // synchronously here and broadcast the preview to all clients. Each client can
+  // then render the incoming damage number using the server's authoritative RNG
+  // roll instead of its own divergent local roll, eliminating "client saw crit
+  // but server rolled non-crit" discrepancies.
+  //
+  // The pre-computed outcome is reused as acceptIncoming's `prepared` slot so
+  // prepareIncoming returns it directly — ONE roll = one truth, no mismatch.
+  const magic = attack.properties.magic === 1;
+  const outcomes = recipients.map((runtime) =>
+    runtime.prepareMobHit(
+      runtime.captureIncomingSource(mob),
+      magic,
+      attack.action,
+      runtime.actor.profile,
+    ),
+  );
+  field.world.broadcast(field, {
+    type: "event",
+    fieldEpoch: field.epoch,
+    event: {
+      kind: "combat.incoming-preview",
+      mobId: mob.id,
+      attackAction: attack.action,
+      previews: outcomes.map((o, i) => ({
+        targetId: recipients[i].actor.id,
+        damage: o.hit?.amount ?? 0,
+        critical: o.hit?.critical ?? false,
+        admitted: !!o.admitted,
+      })),
+    },
+  });
+
+  for (let i = 0; i < recipients.length; i++) {
+    const runtime = recipients[i];
     runtime.acceptIncoming(
       source,
-      attack.properties.magic === 1,
+      magic,
       attack.action,
       () => {
         mob.incomingDeliveries--;
       },
+      outcomes[i].admitted ? outcomes[i] : null,
     );
   }
 }

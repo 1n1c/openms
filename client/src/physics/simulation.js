@@ -340,11 +340,9 @@ function step(sim, input) {
     : Number(input.down) - Number(input.up);
   if (horizontal !== 0) sim.facing = horizontal;
   sim.verticalInput = vertical;
-  sim.crouching =
-    !sim.movementLocked &&
-    sim.state === "ground" &&
-    input.down &&
-    horizontal === 0;
+  sim.crouching = sim.movementLocked
+    ? sim.crouching
+    : sim.state === "ground" && input.down && horizontal === 0;
   scheduleJump(sim, input, horizontal);
   if (sim.state === "ladder") climb(sim, vertical);
   else integrate(sim, sim.crouching ? 0 : horizontal, vertical);

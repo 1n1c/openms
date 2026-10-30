@@ -223,36 +223,29 @@ test("an expired prediction is no longer consumed by a late confirmation", () =>
   ).toBe(false);
 });
 
-/** A mob whose authored controller deals damage by touching the player (`bodyAttack`). */
+/** A mob whose authored controller deals damage by touching the player (`bodyAttack`).
+ *  BodyAttack contact is fully server-authoritative — the client no longer rolls
+ *  RNG or predicts contact damage locally. All HIT/MISS, knockback, and blink
+ *  come from server impact events (via fallbackPresent on the client). */
 function contactLife() {
   return mobLife({ info: { bodyAttack: 1 }, attacks: [] });
 }
 
-test("a body-attack mob resolves contact damage on the first overlapping frame", () => {
+test("a body-attack mob does NOT predict contact damage locally", () => {
+  // Server-authoritative model: observe() no longer produces local float/blink.
+  // Contact damage rendering is driven entirely by server impact events.
   const view = mobView({ life: contactLife(), phase: "idle" });
   const f = fixture({ view });
   f.incoming.observe(f.view, 16);
-  expect(f.shown.length).toBe(1);
-  expect(f.shown[0].family).toBe(2);
-  expect(f.shown[0].amount).toBeGreaterThan(0);
-  expect(f.self.faces).toEqual([{ name: "hit", duration: PLAYER_HIT.timerMs }]);
+  expect(f.shown.length).toBe(0);
+  expect(f.self.faces).toEqual([]);
 });
 
-test("contact damage shares the hit window instead of ticking every frame", () => {
-  const view = mobView({ life: contactLife(), phase: "idle" });
+test("a body-attack mob out of reach also predicts nothing (no-op in both models)", () => {
+  const view = mobView({ life: contactLife(), phase: "idle", x: 900 });
   const f = fixture({ view });
   f.incoming.observe(f.view, 16);
-  expect(f.shown.length).toBe(1);
-  // Still inside the 1500 ms window the authority uses for every incoming outcome.
-  for (let frame = 0; frame < 10; frame++) {
-    f.incoming.advance(30);
-    f.incoming.observe(f.view, 30);
-  }
-  expect(f.shown.length).toBe(1);
-  // Past the window the next overlapping frame resolves again.
-  f.incoming.advance(1200);
-  f.incoming.observe(f.view, 1200);
-  expect(f.shown.length).toBe(2);
+  expect(f.shown.length).toBe(0);
 });
 
 test("a mob without the authored body attack deals no contact damage", () => {
@@ -262,60 +255,72 @@ test("a mob without the authored body attack deals no contact damage", () => {
   expect(f.shown.length).toBe(0);
 });
 
-test("a body-attack mob out of reach deals no contact damage", () => {
-  const view = mobView({ life: contactLife(), phase: "idle", x: 900 });
-  const f = fixture({ view });
-  f.incoming.observe(f.view, 16);
-  expect(f.shown.length).toBe(0);
-});
-
-test("the authoritative contact impact consumes one local prediction", () => {
+test("server hit(amount>0) on bodyAttack renders via fallbackPresent with blink", () => {
+  // No local prediction — server impact arrives first → fallbackPresent handles it.
   const view = mobView({ life: contactLife(), phase: "idle" });
   const f = fixture({ view });
-  f.incoming.observe(f.view, 16);
+  f.incoming.fallbackPresent(500, "mob-a");
   expect(f.shown.length).toBe(1);
-  expect(
-    f.incoming.consume({
-      cause: "contact",
-      actorId: "mob-a",
-      targetId: "self",
-      damage: 7,
-    }),
-  ).toBe(true);
-  expect(
-    f.incoming.consume({
-      cause: "contact",
-      actorId: "mob-a",
-      targetId: "self",
-      damage: 7,
-    }),
-  ).toBe(false);
+  expect(f.shown[0].amount).toBe(500);
+  expect(f.self.faces).toEqual([{ name: "hit", duration: 1500 }]);
 });
 
-test("many nearby mobs share one frame clock and cannot shorten hit protection", () => {
+test("server MISS(amount=0) on bodyAttack renders MISS glyph — no blink, no hit face", () => {
   const view = mobView({ life: contactLife(), phase: "idle" });
   const f = fixture({ view });
-  f.incoming.observe(view, 16);
-  for (let frame = 0; frame < 20; frame++) {
-    f.incoming.advance(30);
-    for (let mob = 0; mob < 30; mob++) f.incoming.observe(view, 30);
-  }
-  expect(f.shown).toHaveLength(1);
-  expect(f.incoming.contactCooldownMs).toBe(PLAYER_HIT.timerMs - 600);
+  // scene-events.damage no longer guards amount>0 — MISS also calls fallbackPresent
+  f.incoming.fallbackPresent(0, "mob-a");
+  // CombatPresentation.show(0) renders blue "MISS" glyph
+  expect(f.shown.length).toBe(1);
+  expect(f.shown[0].amount).toBe(0);
+  // But present() skips hit face + feedback for amount<=0 → no blink, no face
+  expect(f.self.faces).toEqual([]);
 });
 
-test("dead or spawning mobs cannot predict contact and field teardown clears protection", () => {
+test("authoritative contact impact with no local prediction always lets fallbackPresent run", () => {
+  // Server-authoritative: consume() always returns false for contact impacts
+  // (resolveContact is empty → no pending ever written). Each authoritative
+  // impact → scene-events.damage → fallbackPresent → correct glyph rendered.
   const view = mobView({ life: contactLife(), phase: "idle" });
   const f = fixture({ view });
-  view.entity.mobState.hp = 0;
-  f.incoming.observe(view, 16);
-  view.entity.mobState.hp = 400;
-  view.entity.mobState.phase = "spawning";
-  f.incoming.observe(view, 16);
-  expect(f.shown).toHaveLength(0);
-  view.entity.mobState.phase = "idle";
-  f.incoming.observe(view, 16);
-  expect(f.shown).toHaveLength(1);
-  f.incoming.destroy();
-  expect(f.incoming.contactCooldownMs).toBe(0);
+  // No observe() → no local prediction made
+  const consumed = f.incoming.consume({
+    cause: "contact",
+    actorId: "mob-a",
+    targetId: "self",
+    damage: 7,
+  });
+  expect(consumed).toBe(false); // no pending entry → always false
+  // Then scene-events calls fallbackPresent
+  f.incoming.fallbackPresent(7, "mob-a");
+  expect(f.shown.length).toBe(1);
+  // Second same-mob impact (e.g. consecutive ticks on same body) also returns false
+  // and also renders — fallbackPresent handles multiple impacts per mob correctly.
+  const consumed2 = f.incoming.consume({
+    cause: "contact",
+    actorId: "mob-a",
+    targetId: "self",
+    damage: 0, // MISS this tick
+  });
+  expect(consumed2).toBe(false); // always false — no fallbackRendered dedup
+  f.incoming.fallbackPresent(0, "mob-a");
+  expect(f.shown.length).toBe(2); // hit + MISS both rendered on queue
+});
+
+test("fallbackPresent renders even when protectionMs is already synced from server", () => {
+  // Simulate the race where character state (with protectionMs=+1500ms) arrives
+  // BEFORE the impact event. localTarget() would return null because protectionMs
+  // has not yet expired, but fallbackPresent skips that guard — the server has
+  // already admitted this hit, so the invulnerability window does not apply.
+  const view = mobView({ life: contactLife(), phase: "idle" });
+  const f = fixture({ view });
+  // Simulate server-synced protection window still active on the client
+  f.self.entity.combatState.protectionMs = 1500;
+  // Verify localTarget() would actually reject here (sanity check)
+  expect(f.incoming.localTarget()).toBeNull();
+  // But fallbackPresent should still render — it skips the protectionMs guard
+  f.incoming.fallbackPresent(500, "mob-a");
+  expect(f.shown.length).toBe(1);
+  expect(f.shown[0].amount).toBe(500);
+  expect(f.self.faces).toEqual([{ name: "hit", duration: 1500 }]);
 });
