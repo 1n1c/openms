@@ -1,5 +1,15 @@
 const MAX_FIELDS = 32;
 const MAX_TEXT = 200;
+
+function formatLocalTZ(timestamp) {
+  const d = new Date(timestamp);
+  const offsetMin = -d.getTimezoneOffset(); // positive = east of UTC
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const absMin = Math.abs(offsetMin);
+  const tz = `${sign}${String(Math.floor(absMin / 60)).padStart(2, "0")}:${String(absMin % 60).padStart(2, "0")}`;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}${tz}`;
+}
 const FIELDS = new Set([
   "phase",
   "method",
@@ -40,9 +50,9 @@ const FIELDS = new Set([
   "allowedVelocity",
 ]);
 
-/** UTC wall time identifies a log record across processes; elapsed clocks remain monotonic. */
+/** Wall time in local system timezone identifies a log record across processes; elapsed clocks remain monotonic. */
 export function logPrefix(scope, timestamp = Date.now()) {
-  return `[${new Date(timestamp).toISOString()}] [${scope}]`;
+  return `[${formatLocalTZ(timestamp)}] [${scope}]`;
 }
 
 /** Bounded process stdout; callers supply scalar metadata, never bodies or credentials. */

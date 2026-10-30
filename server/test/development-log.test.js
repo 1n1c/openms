@@ -20,10 +20,27 @@ function logger(enabled = true) {
   return { log, lines };
 }
 
-test("log prefixes include UTC date, time, milliseconds and process scope", () => {
+function localOffsetSuffix() {
+  const off = -new Date().getTimezoneOffset();
+  const sign = off >= 0 ? "+" : "-";
+  const abs = Math.abs(off);
+  return `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+}
+
+function localFormat(iso, offsetMin = -new Date().getTimezoneOffset()) {
+  const d = new Date(iso);
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMin);
+  const tz = `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}${tz}`;
+}
+
+test("log prefixes include local timezone date, time, milliseconds and process scope", () => {
   const time = Date.parse("2026-09-16T00:30:45.123+10:00");
-  expect(logPrefix("client", time)).toBe("[2026-09-15T14:30:45.123Z] [client]");
-  expect(logPrefix("server", time)).toBe("[2026-09-15T14:30:45.123Z] [server]");
+  const expected = localFormat(time);
+  expect(logPrefix("client", time)).toBe(`[${expected}] [client]`);
+  expect(logPrefix("server", time)).toBe(`[${expected}] [server]`);
 });
 
 test("wall-clock adjustments do not change elapsed log timings", () => {
@@ -35,6 +52,7 @@ test("wall-clock adjustments do not change elapsed log timings", () => {
     clock: () => elapsed,
     wallClock: () => wall,
   });
+  const off = -new Date().getTimezoneOffset();
   elapsed += 5;
   log("before-midnight");
   wall += 1;
@@ -44,9 +62,9 @@ test("wall-clock adjustments do not change elapsed log timings", () => {
   elapsed += 5;
   log("clock-adjusted");
   expect(lines).toEqual([
-    "[2026-09-15T23:59:59.999Z] [server +5.0ms] before-midnight {}",
-    "[2026-09-16T00:00:00.000Z] [server +10.0ms] after-midnight {}",
-    "[2026-09-15T23:59:59.000Z] [server +15.0ms] clock-adjusted {}",
+    `[${localFormat("2026-09-15T23:59:59.999Z", off)}] [server +5.0ms] before-midnight {}`,
+    `[${localFormat("2026-09-16T00:00:00.000Z", off)}] [server +10.0ms] after-midnight {}`,
+    `[${localFormat("2026-09-15T23:59:59.000Z", off)}] [server +15.0ms] clock-adjusted {}`,
   ]);
 });
 
