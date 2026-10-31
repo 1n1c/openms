@@ -288,13 +288,13 @@ export function advanceMobAttack(world, field, mob) {
   const selected = selectMobTarget(field, mob);
   if (!selected || !selected.skillField.mobAttackAllowed(mob)) return;
   if (mob.state !== "attack") {
-    beginSharedMobAttack(field, mob);
+    beginSharedMobAttack(world, field, mob);
     return;
   }
-  releaseSharedMobAttack(field, mob);
+  releaseSharedMobAttack(world, field, mob);
 }
 
-function beginSharedMobAttack(field, mob) {
+function beginSharedMobAttack(world, field, mob) {
   const previous = mob.action;
   for (const actor of field.characters.values()) {
     if (
@@ -323,7 +323,7 @@ function authoredRecipient(actor, mob) {
   return true;
 }
 
-function releaseSharedMobAttack(field, mob) {
+function releaseSharedMobAttack(world, field, mob) {
   const attack = mob.pendingAttack;
   if (
     !attack ||
@@ -370,7 +370,7 @@ function releaseSharedMobAttack(field, mob) {
       runtime.actor.profile,
     ),
   );
-  field.world.broadcast(field, {
+  world.broadcast(field, {
     type: "event",
     fieldEpoch: field.epoch,
     event: {

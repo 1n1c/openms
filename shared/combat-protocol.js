@@ -251,6 +251,20 @@ export const COMBAT_EVENT_SCHEMAS = {
     actorId: id,
     window: enumeration("EnchantSkill"),
   }),
+  "combat.incoming-preview": record({
+    kind: enumeration("combat.incoming-preview"),
+    mobId: id,
+    attackAction: actionName,
+    previews: array(
+      record({
+        targetId: id,
+        damage: number(0, COMBAT_VALUE_LIMIT),
+        critical: boolean,
+        admitted: boolean,
+      }),
+      32,
+    ),
+  }),
 };
 export const COMBAT_RESULT_SCHEMAS = {
   "skill.cast": record({

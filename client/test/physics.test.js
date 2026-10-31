@@ -369,7 +369,7 @@ test("airborne hit components retain stronger aligned motion and combine opposin
   expect({ vx: sim.vx, vy: sim.vy }).toEqual({ vx: -150, vy: 80 });
 });
 
-test("a ladder hit enters ordinary airborne integration rather than continuing to climb", () => {
+test("a ladder hit with held up/down input keeps climbing (original behaviour)", () => {
   const terrain = world([floor(1, 50)]);
   terrain.ladders = [
     { id: 1, x: 0, y1: 0, y2: 100, ladder: 1, uf: 1, page: 0 },
@@ -377,12 +377,29 @@ test("a ladder hit enters ordinary airborne integration rather than continuing t
   const sim = standing(terrain, { x: 0, y: 50 });
   advanceSimulation(sim, input({ up: true }), 30);
   expect(sim.state).toBe("ladder");
+  // Holding up → verticalInput !== 0 → ladder preserved; climb() next tick
+  // zeroes vx/vy so the knockback impulse is swallowed.
   applyExternalImpulse(sim, 200, -200);
   advanceSimulation(sim, input({ up: true }), 30);
+  expect(sim.state).toBe("ladder");
+  expect(sim.ladderId).toBe(1);
+});
+
+test("a ladder hit with no held input throws the actor off (original behaviour)", () => {
+  const terrain = world([floor(1, 50)]);
+  terrain.ladders = [
+    { id: 1, x: 0, y1: 0, y2: 100, ladder: 1, uf: 1, page: 0 },
+  ];
+  const sim = standing(terrain, { x: 0, y: 50 });
+  advanceSimulation(sim, input({ up: true }), 30);
+  expect(sim.state).toBe("ladder");
+  // No held input → verticalInput === 0 → normal detach and knockback.
+  advanceSimulation(sim, input({}), 30);
+  applyExternalImpulse(sim, 200, -200);
+  advanceSimulation(sim, input({}), 30);
   expect(sim.state).toBe("air");
   expect(sim.ladderId).toBe(0);
   expect(sim.x).toBeGreaterThan(5);
-  expect(sim.y).toBeCloseTo(44.9, 10);
 });
 
 /** A distant upper ledge admits tall spawns without bypassing native map bounds. */

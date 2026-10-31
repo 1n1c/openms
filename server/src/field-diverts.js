@@ -19,6 +19,7 @@ export function recordMotionDivert(actor, simulation, divert) {
   if (pending.entries.length >= MAX_DIVERTS_PER_TICK) return;
   synchronizeMovementStream(actor);
   const id = grantMovementImpulse(actor, divert);
+  if (id === null) return;
   pending.entries.push({
     id,
     vx: divert.vx,
