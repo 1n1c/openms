@@ -244,6 +244,17 @@ export function applyExternalImpulse(sim, vx, vy, onBeforeImpulse = null) {
     throw new Error("Invalid external motion impulse");
   }
   if (onBeforeImpulse !== null) onBeforeImpulse(sim, vx, vy);
+  // Original observed behaviour: climbing a ladder with held up/down input at the
+  // moment of impact keeps the ladder attachment intact. The next climb() call
+  // resets vx/vy to zero, swallowing the knockback entirely. An idle ladder hold
+  // (verticalInput === 0) detaches normally so knockback throws the actor off.
+  if (sim.state === "ladder" && sim.verticalInput !== 0) {
+    sim.crouching = false;
+    sim.vx = mergeImpulse(sim.vx, vx);
+    sim.vy = mergeImpulse(sim.vy, vy);
+    updateAction(sim);
+    return;
+  }
   sim.seat = null;
   if (sim.state === "ground") {
     sim.vx = 0;
