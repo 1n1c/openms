@@ -974,9 +974,10 @@ export class GameUI {
 
   /** FadeYesNo is a top-level window, not a status-client child (+22).
    * 00522c73/00522e65/00523359 use screen y508; keep browser HUD-right anchoring.
-   */
+   * Original anchors the panel 181px from the right edge (not the 6px HUD margin)
+   * and 10px higher than the browser y508 baseline (actual plane y498). */
   positionInvitation(panel) {
-    panel.position(800 - panel.width - 6, 508);
+    panel.position(800 - panel.width - 181, 498);
   }
 
   front(panel) {
