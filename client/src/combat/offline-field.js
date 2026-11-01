@@ -1,7 +1,7 @@
 import { createHitboxState, updateHitboxes } from "../physics/hitboxes.js";
 import { applyExternalImpulse } from "../physics/simulation.js";
 import { PLAYER_HIT } from "../../../shared/combat-protocol.js";
-import { placeBody } from "../world/life-geometry-numeric.js";
+import { containsPoint, placeBody } from "../world/life-geometry-numeric.js";
 import { OfflineMobRenderer } from "./offline-mob-renderer.js";
 import { PassiveRecovery } from "../character/passive-recovery.js";
 import {
@@ -966,11 +966,34 @@ export class OfflineField {
     // Without this guard, multiple mobs could each admit one hit in the same tick
     // because rejectsHit returns false before hitTimerMs has been set.
     if (this.hitTimerMs !== 0) return;
+    // MapleStory uses two distinct bodyAttack contact rules:
+    //   Ground   → player anchor-foot point inside mob body rectangle (point-in-rect)
+    //               matches observed "center-overlap-only" behavior on flat ground.
+    //   Ladder/Air → player receiver rectangle TOP HALF overlaps mob body.
+    //               This handles head-on-feet contact from below (player climbs into
+    //               mob standing on a platform above) while correctly rejecting
+    //               feet-on-head contact (player lower body overlaps upper mob body
+    //               while player is above the mob on a rope ladder).
+    const playerBody = this.hitboxes.body;
+    const playerGround = this.simulation.state === "ground";
+    const playerPoint = { x: this.simulation.x, y: this.simulation.y };
+    // Player head-upper half rectangle for ladder/air bodyAttack contact.
+    // Use half the current body height so prone/stretch morphs still behave correctly.
+    const halfHeight = (playerBody.bottom - playerBody.top) / 2;
+    const playerHead = {
+      active: true,
+      left: playerBody.left,
+      right: playerBody.right,
+      top: playerBody.top,
+      bottom: playerBody.top + halfHeight,
+    };
     for (const mob of this.mobs) {
       if (
         mob.template.info.notAttack !== 1 &&
         mob.template.info.bodyAttack === 1 &&
-        this.targetOverlap(mob.sweptBody, this.targetFor(mob))
+        (playerGround
+          ? containsPoint(mob.sweptBody, playerPoint)
+          : overlaps(mob.sweptBody, playerHead))
       ) {
         if (this.proposeMobHit(mob, false)) return;
       }
@@ -1034,7 +1057,18 @@ export class OfflineField {
       return outcome;
     }
     if (!this.admitIncomingHit(hit, mob, magic, outcome)) return outcome;
-    hit.direction = this.simulation.x >= mob.x ? 1 : -1;
+    // BodyAttack contact damage knockback follows the mob's facing direction — the
+    // mob pushes the player in its direction of motion, regardless of which side
+    // of the body the player's foot point lands on. Authored attacks (swing,
+    // magic, etc.) keep the original simulation.x >= mob.x relative-position
+    // branch, because mobs face their target at attack time so both formulas
+    // coincide, and authored direction tracks the actual attack reach.
+    hit.direction =
+      attackAction === null
+        ? mob.facing
+        : this.simulation.x >= mob.x
+          ? 1
+          : -1;
     outcome.admitted =
       !this.rejectsHit(hit) &&
       !(outcome.rejectContact && attackAction === null);

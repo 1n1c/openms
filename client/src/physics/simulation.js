@@ -257,8 +257,12 @@ export function applyExternalImpulse(sim, vx, vy, onBeforeImpulse = null) {
   }
   sim.seat = null;
   if (sim.state === "ground") {
-    sim.vx = 0;
-    sim.vy = 0;
+    // Project foothold-tangent sim.speed into world-coordinate vx/vy so that
+    // mergeImpulse can subtract the player's own running inertia from the
+    // incoming knockback vector. Grounded sims carry zero vx/vy (speed lives
+    // in the foothold scalar until a detach), so skipping this step makes every
+    // knockback mergeImpulse(0,requested) → requested regardless of run direction.
+    projectGround(sim);
   }
   detachGround(sim);
   sim.ladder = null;
