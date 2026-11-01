@@ -189,9 +189,7 @@ export class QuestSystem {
     }
     if (
       automatic &&
-      (!tracker.auto ||
-        this.trackerExclusions.has(id) ||
-        !rows.some((row) => row.progress))
+      (!tracker.auto || this.trackerExclusions.has(id))
     ) {
       return fail("tracker", "Automatic registration conditions are not met");
     }
