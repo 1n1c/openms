@@ -284,6 +284,59 @@ export function extractCombat(context) {
   };
 }
 
+/** Extract hit.img sword/mace impact spark frames from Character.wz Afterimage folder.
+ *  hit.img has no facing dimension — one frame sequence per variant, mirror at runtime.
+ *  Variants: sword1/sword2 (random pick per sharp hit), mace1/mace2 (random per blunt hit). */
+const HIT_VARIANTS = ["sword1", "sword2", "mace1", "mace2"];
+const MAX_HIT_FRAMES_PER_VARIANT = 16;
+
+export async function extractHitEffects(context) {
+  const image = context.image("Character", "Afterimage/hit.img");
+  const actions = Object.create(null);
+  const sources = Object.create(null);
+  let totalFrames = 0;
+
+  for (const variant of HIT_VARIANTS) {
+    const node = image.children[variant];
+    if (!node) continue;
+    const frames = await context.frames(node);
+    if (!frames?.length) continue;
+    if (frames.length > MAX_HIT_FRAMES_PER_VARIANT) {
+      throw new Error(`Hit effect frame bound exceeded: ${variant}`);
+    }
+    totalFrames += frames.length;
+    if (totalFrames > MAX_AFTERIMAGE_FRAMES * 4) {
+      throw new Error("Total hit effect frame bound exceeded");
+    }
+    actions[variant] = frames;
+    sources[variant] = `Character.wz:Afterimage/hit.img/${variant}`;
+  }
+
+  if (Object.keys(actions).length === 0) {
+    throw new Error("Missing original hit.img variants");
+  }
+
+  const entity = {
+    id: "hit-effect",
+    kind: "effect",
+    order: 0,
+    x: 0,
+    y: 0,
+    z: 0,
+    visible: false,
+    flip: false,
+    opacity: 1,
+    action: Object.keys(actions)[0],
+    actions,
+  };
+
+  return context.bundle({
+    id: "hit-effects",
+    entities: [entity],
+    metadata: { sources },
+  });
+}
+
 /** Compile only release-catalog ammunition; every projectile is its own original bullet animation. */
 export async function extractProjectiles(context, items) {
   const entities = [],

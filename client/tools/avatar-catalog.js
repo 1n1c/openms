@@ -1,6 +1,6 @@
 import { avatarMaps, extractAvatarRecord } from "./avatar-data.js";
 import { equippedSlots } from "../src/items/inventory-model.js";
-import { extractProjectiles } from "./combat-data.js";
+import { extractProjectiles, extractHitEffects } from "./combat-data.js";
 import { extractEquipmentEffects } from "./equipment-effect-data.js";
 
 const MAX_IMAGES = 50000;
@@ -194,5 +194,6 @@ export async function extractAvatarCatalog(context, items) {
     skins,
     equipmentEffects: await extractEquipmentEffects(context, wanted),
     projectiles: await extractProjectiles(context, items),
+    hitEffects: await extractHitEffects(context),
   };
 }
