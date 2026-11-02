@@ -1,6 +1,7 @@
 import { GameplayEffects } from "../audio/gameplay-effects.js";
 import { CombatPresentation } from "../combat/combat-presentation.js";
 import { SpeechBubbles } from "../rendering/speech-bubbles.js";
+import { weaponHitGroup } from "../combat/weapon-usage.js";
 
 const MAX_PROJECTILE_EVENTS = 1024;
 const PROJECTILE_EVENT_LIFETIME = 10000;
@@ -26,6 +27,7 @@ export class SceneEvents {
       catalog.audiovisual,
       signal,
       catalog.ui.avatar.projectiles,
+      catalog.ui.avatar.hitEffects,
     );
     await this.enchant.prepare(catalog.audiovisual, signal, [
       "Enchant/Success",
@@ -165,6 +167,8 @@ export class SceneEvents {
           });
         } else {
           this.combat.onMobHit(target, event.damage, event.critical);
+          // Hit.img spark effect for basic melee hits (not skills, not ranged)
+          this.spawnHitEffect(event);
         }
       }
     } else if (!consumed && incomingCause && event.targetId === this.owner.selfId) {
@@ -176,6 +180,26 @@ export class SceneEvents {
       combat?.incoming?.fallbackPresent(event.damage, event.actorId);
     }
   }
+
+  /** Spawn hit.img spark effect for outgoing basic melee hits.
+   *  Only sword/sharp and mace/blunt weapons get hit.img sparks; ranged/magic
+   *  weapons use their own Skill.wz visuals and skip this. */
+  spawnHitEffect(event) {
+    if (event.cause !== "basic") return;
+    // Determine weapon type from the local actor's equipped combat data.
+    const actor = this.owner.scene?.actor;
+    const weaponType = actor?.avatar?.combat?.weaponType;
+    if (!weaponType) return;
+    const group = weaponHitGroup(weaponType);
+    if (!group) return; // ranged/magic — hit.img not used
+    const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
+    // Hit position from server-authoritative event; facing from actor animation.
+    const pos = event.position;
+    if (!pos) return;
+    const facing = actor?.animation?.container?.scale?.x < 0 ? -1 : 1;
+    this.combat.onHitEffect(pos.x, pos.y, facing, variant);
+  }
+
   /** Phase 4 (RNG sync route A): store server-authoritative incoming damage
    *  previews so LocalIncoming can render using the server's RNG roll instead
    *  of its own divergent local roll. */
