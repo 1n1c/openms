@@ -80,10 +80,9 @@ export function projectModernCombatStats(profile, hooks, temporary, output) {
       ? magicMastery(profile, hooks)
       : output.mastery;
   output.masteryPercent = Math.min(99, baseMasteryPercent(output) + raw * 5);
-  output.defense = Math.floor(
-    (1.5 * output.str + 0.4 * (output.dex + output.luk) + output.pdd) *
-      (1 + output.defensePercent / 100),
-  );
-  output.pdd = output.defense;
-  output.mdd = output.defense;
+
+  // v83: PDD = pure equipment + buffs, no attribute weights.
+  // Output already has equipment incPDD added by equipmentBonuses(); shield mastery adds to it.
+  // No STR×1.5 + DEX/LUK×0.4 formula (removed — that was modern ruleset).
+  // PDD/MDD are independent; MDD gets INT/LUK weights per original panel formula.
 }

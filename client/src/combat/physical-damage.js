@@ -142,8 +142,8 @@ export class PhysicalDamage {
     return this.lastGenerated;
   }
 
-  weaponDamage(stats, use) {
-    const maximum = actualDamageMaximum(stats, use);
+  weaponDamage(stats, use, attackType = "physical") {
+    const maximum = actualDamageMaximum(stats, use, attackType);
     return this.roll(actualDamageMinimum(stats, maximum), maximum);
   }
 }

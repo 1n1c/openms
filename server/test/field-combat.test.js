@@ -95,8 +95,9 @@ test("server and client project the same modern stats and ordinary hit", async (
   expect(offline).toEqual(actor.stats);
   const shown = {};
   shownDamageRange(offline, shown);
-  // Starter sword PAD17: round(1.24 * (4*100+20) *17/100) =89.
-  expect(shown).toEqual({ damageMin: 19, damageMax: 89 });
+  // Panel display v83: max=floor((floor(WM*main)+secondary)*WATK/100)=floor((400+20)*17/100)=71
+  // min=floor((floor(WM*main)*0.1+secondary)*WATK/100)=floor((40+20)*17/100)=10
+  expect(shown).toEqual({ damageMin: 10, damageMax: 71 });
   const use = createWeaponUse();
   use.projectilePAD = 0;
   const server = actor.skillField.skillCombat.basicDamage(
@@ -111,7 +112,7 @@ test("server and client project the same modern stats and ordinary hit", async (
     use,
   );
   expect(server).toBe(client);
-  expect(server).toBe(106);
+  expect(server).toBe(86);
 });
 
 test("late attack input is admitted once with its original identity and fresh combat presentation", async () => {

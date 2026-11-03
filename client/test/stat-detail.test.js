@@ -22,8 +22,8 @@ test("Stat detail formats modern damage bounds from immutable server statistics"
       ]),
     },
   });
-  expect(damage.textContent).toBe("3 ~ 11");
-  expect(labels.get("aria-label")).toBe("damage: 3 ~ 11");
+  expect(damage.textContent).toBe("1 ~ 9");
+  expect(labels.get("aria-label")).toBe("damage: 1 ~ 9");
   expect(speed.textContent).toBe("100%");
   expect(Object.hasOwn(stats, "damageMin")).toBe(false);
 });
@@ -42,7 +42,7 @@ test("modern large ranges fit the stat window while retaining exact accessible v
     owner: { hooks: { characterStats: () => stats } },
     statDetail: { statValues: new Map([["damage", damage]]) },
   });
-  expect(damage.textContent).toBe("9.9B ~ 49.6B");
-  expect(labels.get("title")).toBe("9920000001 ~ 49600000000");
-  expect(labels.get("aria-label")).toBe("damage: 9920000001 ~ 49600000000");
+  expect(damage.textContent).toBe("4B ~ 40B");
+  expect(labels.get("title")).toBe("4000000000 ~ 40000000000");
+  expect(labels.get("aria-label")).toBe("damage: 4000000000 ~ 40000000000");
 });
