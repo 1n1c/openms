@@ -91,7 +91,7 @@ export function recalculateVitals(profile, items, temporary = null) {
 const PRIMARY_STATS = ["str", "dex", "int", "luk"];
 const SECONDARY_CAPS = [
   ["pdd", Number.MAX_SAFE_INTEGER],
-  ["mad", Number.MAX_SAFE_INTEGER],
+  ["mad", 2000],
   ["mdd", Number.MAX_SAFE_INTEGER],
   ["acc", 999],
   ["eva", 999],
@@ -216,20 +216,18 @@ function projectAdvancedMastery(hooks, output, aran, cygnus) {
   }
 }
 
-/** 0077f6b5..7f6: integer EVA terms; x87 ACC truncates only after addition. */
+/** v83 ACC/EVA: both DEX and LUK contribute per user-corrected v83 behavior.
+ * family-specific dexFactor matches cosmic getAccWeight. */
 function projectBaseAccuracy(output) {
   const family = Math.trunc((output.job % 1000) / 100);
-  const branch = Math.trunc(output.job / 10);
-  let evasion = Math.trunc(output.luk / 2) + Math.trunc(output.dex / 4);
-  let dexFactor = family === 3 || family === 4 || family === 5 ? 0.6 : 0.8;
+  // v83 getAccWeight: bowman/thief/pirate=0.6, warrior/mage=0.8
+  const dexFactor = family === 3 || family === 4 || family === 5 ? 0.6 : 0.8;
+  // lukFactor: bowman/thief/pirate=0.3, warrior/mage=0.5
   const lukFactor = dexFactor === 0.6 ? 0.3 : 0.5;
-  if (family === 5 && branch === 51) {
-    evasion = Math.trunc(Math.trunc(output.luk / 2) + output.dex * 1.5);
-    dexFactor = 0.9;
-  } else if (family === 5 && branch === 52) {
-    evasion = Math.trunc(output.luk / 2) + Math.trunc(output.dex / 8);
-  }
+  // v83 EVA: dex/4 + luk/2 (both contribute).
+  const evasion = Math.trunc(output.dex / 4) + Math.trunc(output.luk / 2);
   output.eva = addStat(output.eva, evasion);
+  // v83 ACC: dex * familyFactor + luk * lukFactor (both contribute).
   output.acc = addStat(
     output.acc,
     Math.trunc(output.dex * dexFactor + output.luk * lukFactor),
@@ -362,6 +360,19 @@ function projectPrimaryStats(profile, output, temporary) {
   output.str = addStat(output.str, temporary?.morphSTR);
 }
 
+/** v83 panel attribute formulas (user-corrected v83 behavior):
+ *   INT → MAGIC (MAD), MAGIC DEF. (MDD), HANDS
+ *   LUK → ACC, EVA, HANDS
+ *   DEX → ACC, EVA, HANDS, Damage (secondary)
+ *   STR → Damage Max only
+ * PDD/MDD: pure equipment + INT (no STR/DEX/LUK weights on PDD). */
+function projectPanelAttributes(output) {
+  // MAD: equipment incMAD already added by equipmentBonuses(). Add INT only (cosmic localmagic = totalINT).
+  output.mad = addStat(output.mad, output.int);
+  // MDD: equipment incMDD already added. Add INT (MAGIC DEF. follows INT).
+  output.mdd = addStat(output.mdd, output.int);
+}
+
 /** Project retained equipment/skills with modern damage, mastery, critical and defense rules.
  * Server and offline combat share this function; no durable profile mutation. */
 export function projectCharacterStats(
@@ -378,6 +389,7 @@ export function projectCharacterStats(
   }
   equipmentBonuses(profile, hooks.items, output);
   projectPrimaryStats(profile, output, temporary);
+  projectPanelAttributes(output);
   output.level = profile.level;
   output.job = profile.job;
   output.invincible = temporary?.invincible ?? 0;
