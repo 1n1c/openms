@@ -300,20 +300,26 @@ test("large hits reach modern cap and successive attack lines refill random word
   expect(draws).toBe(14);
 });
 
-test("monster attack is linear and defense reductions have separate 68% and 80% caps", () => {
-  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0 });
+test("monster attack uses Fiel EXE sqrt defense (non-linear, NOT linear 68%/80% caps)", () => {
+  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, int: 0 });
   const mob = target().skillStatus.projected;
   const bounds = {};
+  // Fiel formula: damage = mobAtk * (1 - sqrt(WDEF/4) / (mobAtk + level*0.5))
+  // pdd=0 → WDEF=0 → damage = 1000 * 1 = 1000
   incomingDamageBounds(input, mob, 1000, bounds);
-  expect(bounds.minimum).toBeCloseTo(722.5);
-  expect(bounds.maximum).toBeCloseTo(850);
+  expect(bounds.minimum).toBe(1000);
+  expect(bounds.maximum).toBe(1000);
   input.pdd = 1000;
+  // WDEF = 1.2*0 + 0.5*0 + 0.4*0 + 1000 = 1000
+  // reductionFactor = 1 - sqrt(250) / (1000 + 25) = 1 - 15.81/1025 = 0.9846
   incomingDamageBounds(input, mob, 1000, bounds);
-  expect(bounds.minimum).toBeCloseTo(144.5);
-  expect(bounds.maximum).toBeCloseTo(170);
+  expect(bounds.minimum).toBe(984);
+  expect(bounds.maximum).toBe(984);
   input.level += 10;
+  // level factor moves denominator, makes slightly more damage at higher player level
   incomingDamageBounds(input, mob, 1000, bounds);
-  expect(bounds.maximum).toBeCloseTo(155);
+  expect(bounds.minimum).toBe(984);
+  expect(bounds.maximum).toBe(984);
 });
 
 test("incoming level factors match table boundaries", () => {
@@ -334,18 +340,22 @@ test("incoming level factors match table boundaries", () => {
   }
 });
 
-test("physical and magic dodge use DEX, LUK, accuracy and level with a 90% cap", () => {
+test("physical and magic dodge use DEX, LUK, accuracy and Fiel SAR level penalty", () => {
+  // Fiel EXE: level penalty = (mobLvl - charLvl) >> 1 (arithmetic right-shift), NOT 2*gap
   expect(dodgeChance(stats({ dex: 100, luk: 0 }), { level: 50, acc: 0 })).toBe(
     10,
   );
+  // Old: 10 - 2*1 = 8. New: 10 - (1>>1=0) = 10
   expect(dodgeChance(stats({ dex: 100, luk: 0 }), { level: 51, acc: 0 })).toBe(
-    8,
+    10,
   );
+  // Old cap 90, new non-Thief cap 80 (Thief 95). stats({...}) defaults to Warrior (job 100)
   expect(
     dodgeChance(stats({ dex: 100000, luk: 0 }), { level: 50, acc: 0 }),
-  ).toBe(90);
+  ).toBe(80);
+  // Old: 0 (100-100=0). New: minRate=2 (non-Thief)
   expect(dodgeChance(stats({ dex: 0, luk: 0 }), { level: 50, acc: 100 })).toBe(
-    0,
+    2,
   );
   expect(
     generator().evades(stats({ dex: 100, luk: 0 }), { level: 50, acc: 0 }),
@@ -353,12 +363,15 @@ test("physical and magic dodge use DEX, LUK, accuracy and level with a 90% cap",
 });
 
 test("incoming magic shares defense and damage reduction; Invincible stays physical", () => {
-  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, invincible: 20 });
+  // int=0 显式覆盖 stats() 默认 int=12, 让 WDEF=0 便于精确计算
+  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, invincible: 20, int: 0 });
   const mob = { level: 50, acc: 100, PADamage: 1000, MADamage: 1000 };
-  expect(generator().receive(input, mob, { magic: false })).toBe(578);
-  expect(generator().receive(input, mob, { magic: true })).toBe(722);
+  // int=0, WDEF=0 → bounds=1000, invincible 20% → 800
+  const g = generator(5000000);
+  expect(g.receive(input, mob, { magic: false })).toBe(800);
+  expect(g.receive(input, mob, { magic: true })).toBe(1000);
   input.damageReductionPercent = 50;
-  expect(generator().receive(input, mob, { magic: true })).toBe(361);
+  expect(g.receive(input, mob, { magic: true })).toBe(500);
 });
 
 function projectionFixture() {
