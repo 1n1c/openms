@@ -185,8 +185,15 @@ export class LocalCombat {
       // Delay sound to beat/release time — matches sdlMS load_sfx() which
       // delays audio by afterimage_game_instance::load_beat_time().
       // This syncs sound with afterimage visually appearing.
+      // Mark soundPlayed SYNCHRONOUSLY here so soundEcho can skip the
+      // server-side echo — we own this sound and will play it ourselves
+      // at the release time inside the callback. Deferring the marker
+      // inside setTimeout would let an early-arriving combat.attack event
+      // slip through and play the server echo, giving TWO sounds (start +
+      // end). rejected attacks skip the callback (correct: no hit = no
+      // sound), and the server doesn't send combat.attack for rejections.
       setTimeout(() => {
-        if (record.rejected) return; // Only skip on server rejection — play on confirmation (soundEcho blocks server echo)
+        if (record.rejected) return;
         this.owner.audio.onPlayerAttack(record.sfx);
       }, record.release);
       record.soundPlayed = true;

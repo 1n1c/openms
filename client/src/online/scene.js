@@ -1038,7 +1038,13 @@ export class OnlineScene {
     }
     view.animation.advance(step);
     const combat = view.entity.combatState;
+    // Self entity NEVER takes the remote-seek path — its animation is driven
+    // entirely by localCombat.draw (begin setAction + draw seek every frame).
+    // When draw returns false (attack expired), the animation is already completed
+    // or drawSelfPose transitions to alert/stand. Remote phaseMs has no bearing
+    // on self's local clock and feeding it here can reset the frame to 0 mid-swing.
     if (
+      view.entity.id !== this.selfId &&
       combat?.phase === "attack" &&
       combat.attackSpeed !== null &&
       !this.localCombat?.owns(view.entity)
@@ -1062,6 +1068,7 @@ export class OnlineScene {
     const local = this.localCombat?.current();
     const localExpired =
       !local && Boolean(this.localCombat?.active);
+    const combat = view.entity.combatState;
     // Only route movement-style poses through the prediction simulation.
     // Combat poses (swingO1/alert/dead/etc.) come straight from the server
     // entity.action — it is the authoritative OfflineField getter that
@@ -1070,13 +1077,33 @@ export class OnlineScene {
     // phase=="attack" frames through simulation.action, which is movement-
     // only and can return walk1/run1 transiently — fighting the alert
     // override and resetting the animation every frame it disagreed.
-    let chosen = local
-      ? local.action
-      : simulation &&
-          !view.entity.seat &&
-          MOVEMENT_ACTIONS.has(action)
+    //
+    // EXCEPTION: when a local attack record just expired (localExpired) but
+    // the server hasn't yet flipped phase to idle, IGNORE the server's
+    // attackName entirely. Client and server use DIFFERENT random sources
+    // to pick attack variants — the client uses sequence++ while the
+    // server uses damageGenerator.next() — so the two can disagree on
+    // swingO1 vs swingO2 vs stabO1 vs stabO2. If we took the server's
+    // mismatched attackName here it would feed updateActor → setAction
+    // with a different action name than the one localCombat.begin
+    // originally set, resetting the animation to frame 0 mid-swing.
+    // Instead, fall through to simulation.action (stand1/stand2) so the
+    // alert override below can do its intended job. Dead/cast/hold phases
+    // keep their server-published action since those aren't affected by
+    // variant-mismatch RNG divergence.
+    const ignoreServerCombatAction = localExpired && combat?.phase === "attack";
+    let chosen;
+    if (local) {
+      chosen = local.action;
+    } else if (ignoreServerCombatAction) {
+      chosen = simulation && !view.entity.seat
         ? simulation.action
         : action;
+    } else if (simulation && !view.entity.seat && MOVEMENT_ACTIONS.has(action)) {
+      chosen = simulation.action;
+    } else {
+      chosen = action;
+    }
     // Native MapleStory animates the alert posture the frame AFTER the
     // attack animation ends (AnimEnd → State = "alert"). Do the same
     // locally: if the LocalCombat record just expired (attack animation
@@ -1084,7 +1111,6 @@ export class OnlineScene {
     // idle, force "alert" so we never show a stray swing frame or a
     // stand flicker between the end of the swing and the arrival of the
     // server's idle+braceMs state.
-    const combat = view.entity.combatState;
     const onGroundIdlePose =
       chosen === "stand1" || chosen === "stand2";
     // Only force "alert" if the player was idle-on-ground before/after
