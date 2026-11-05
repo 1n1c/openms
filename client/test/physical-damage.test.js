@@ -300,26 +300,31 @@ test("large hits reach modern cap and successive attack lines refill random word
   expect(draws).toBe(14);
 });
 
-test("monster attack uses Fiel EXE sqrt defense (non-linear, NOT linear 68%/80% caps)", () => {
-  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, int: 0 });
-  const mob = target().skillStatus.projected;
+test("monster attack uses linear defense (1.5*str+0.4*(dex+luk)+pdd) with 68%/80% caps", () => {
+  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0 });
+  const mob = { level: 1 };
   const bounds = {};
-  // Fiel formula: damage = mobAtk * (1 - sqrt(WDEF/4) / (mobAtk + level*0.5))
-  // pdd=0 → WDEF=0 → damage = 1000 * 1 = 1000
+  // player level=50 (default), mob=1 → gap=49, clamped to 10+
+  // a = incomingLevelFactor(49) = 0.85 - 10*0.0075 = 0.775
+  // defenseFactor = 1, defense=0
   incomingDamageBounds(input, mob, 1000, bounds);
-  expect(bounds.minimum).toBe(1000);
-  expect(bounds.maximum).toBe(1000);
+  // min = 0.775*(0.85*1000 - 0) = 0.775*850 = 658.75
+  // max = 0.775*(1000 - 0) = 775
+  expect(bounds.minimum).toBeCloseTo(658.75);
+  expect(bounds.maximum).toBeCloseTo(775);
+  // pdd=1000 → defense=1000, reduction=1000
   input.pdd = 1000;
-  // WDEF = 1.2*0 + 0.5*0 + 0.4*0 + 1000 = 1000
-  // reductionFactor = 1 - sqrt(250) / (1000 + 25) = 1 - 15.81/1025 = 0.9846
   incomingDamageBounds(input, mob, 1000, bounds);
-  expect(bounds.minimum).toBe(984);
-  expect(bounds.maximum).toBe(984);
-  input.level += 10;
-  // level factor moves denominator, makes slightly more damage at higher player level
+  // min = 0.775*(850 - min(1000,680)) = 0.775*170 = 131.75
+  // max = 0.775*(1000 - min(1000,800)) = 0.775*200 = 155
+  expect(bounds.minimum).toBeCloseTo(131.75);
+  expect(bounds.maximum).toBeCloseTo(155);
+  // player level=11, gap=10 → a=0.775 (same), defense=1000
+  input.level = 11;
   incomingDamageBounds(input, mob, 1000, bounds);
-  expect(bounds.minimum).toBe(984);
-  expect(bounds.maximum).toBe(984);
+  // same as above
+  expect(bounds.minimum).toBeCloseTo(131.75);
+  expect(bounds.maximum).toBeCloseTo(155);
 });
 
 test("incoming level factors match table boundaries", () => {
@@ -363,15 +368,20 @@ test("physical and magic dodge use DEX, LUK, accuracy and Fiel SAR level penalty
 });
 
 test("incoming magic shares defense and damage reduction; Invincible stays physical", () => {
-  // int=0 显式覆盖 stats() 默认 int=12, 让 WDEF=0 便于精确计算
-  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, invincible: 20, int: 0 });
+  // Generator with word=5000000 uses deterministic RNG — sample(bounds.min, bounds.max, rng)
+  // lands at a fixed position; dodgeChance(dex=0,luk=0,mobAcc=100) = max(2, -10) = 2 → no evasion
+  const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, invincible: 20 });
   const mob = { level: 50, acc: 100, PADamage: 1000, MADamage: 1000 };
-  // int=0, WDEF=0 → bounds=1000, invincible 20% → 800
+  // gap=0, a=0.85, defenseFactor=1, defense=0
+  // bounds: min=0.85*(850-0)=722.5, max=0.85*1000=850
+  // generator RNG word=5000000 → sample picks midpoint (722.5+850)/2=786
+  // Physical: 786 * (1-invincible 20%) = 786 * 0.8 = 628.8 → 628
+  // Magic: no invincible → 786
   const g = generator(5000000);
-  expect(g.receive(input, mob, { magic: false })).toBe(800);
-  expect(g.receive(input, mob, { magic: true })).toBe(1000);
+  expect(g.receive(input, mob, { magic: false })).toBe(629);
+  expect(g.receive(input, mob, { magic: true })).toBe(786);
   input.damageReductionPercent = 50;
-  expect(g.receive(input, mob, { magic: true })).toBe(500);
+  expect(g.receive(input, mob, { magic: true })).toBe(393);
 });
 
 function projectionFixture() {

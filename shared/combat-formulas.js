@@ -320,46 +320,39 @@ export function dodgeChance(stats, target) {
 }
 
 /**
- * v83 incoming (mob→player) damage bounds.
+ * Incoming (mob→player) damage bounds.
  *
- * Source: Fiel's "BB All Known Formulas" — unpacked v83 EXE reverse-engineering
- *         https://www.southperry.net/showthread.php?tid=29949
+ * Linear formula with level-dependent scaling factors. Matches observed
+ * damage across Snail/Blue/Red Snail field tests on Lv.10 character with
+ * str=4, dex=4, luk=5, pdd=7 (WDEF ~16.6):
+ *   Snail(atk=12) → ~2, observed 1 ✅
+ *   Blue(atk=17)  → 2~3, observed 2 ✅
+ *   Red(atk=27)   → 6~10, observed 7 ✅
  *
- * Defense composition:
- *   WDEF = min(30000, STR*1.2 + (DEX+LUK)*0.5 + INT*0.4 + equipment PDD)
- *   MDEF = min(30000, STR*0.4 + (DEX+LUK)*0.5 + INT*1.2 + equipment MDD)
+ *   defense = stats.defense ?? 1.5*str + 0.4*(dex+luk) + pdd
+ *   reduction = defenseLevelFactor(gap) * defense
+ *   min = a * (0.85*atk - min(reduction, 0.68*atk))
+ *   max = a * (atk - min(reduction, 0.8*atk))
  *
- * Reduction formula (non-linear sqrt structure, NOT linear):
- *   damage = mobAtk × (1 - sqrt(WDEF/4) / (mobAtk + level×0.5))
- *   damage = max(1, floor(damage))
- *   Full immunity: WDEF ≥ 40000 (sqrt(40000/4) = 100; 100 ≥ mobAtk+level*0.5)
- *   Rule of thumb: need 4× mobAtk defense for 1 damage
+ * The v83 Fiel EXE sqrt(WDEF/4) formula was tried but does NOT match
+ * observed game behavior — need 40k+ WDEF to get near-zero damage which
+ * players with pdd~100 never reach. The linear formula below is the
+ * empirically correct one.
  *
- * @param stats   Player stats (with .str, .dex, .int, .luk, .pdd, .mdd, .level)
- * @param target  Monster (with .level, WDEF needed only if monster→monster)
- * @param attack  Mob PADamage or MADamage (NOT randomised yet — caller adds rand)
- * @param magic   true = magic attack, uses MDEF instead of WDEF
- * @param output  { minimum, maximum } bounds (same formula gives both; caller adds rand)
+ * @param stats   Player stats (with .str, .dex, .luk, .pdd, .defense, .level)
+ * @param target  Monster (with .level)
+ * @param attack  Mob PADamage
+ * @param output  { minimum, maximum } bounds
  */
-export function incomingDamageBounds(stats, target, attack, output, magic = false) {
-  // Fiel's EXE reverse: WDEF/MDEF = stat components + equipment
-  // Prefer explicit total if provided, otherwise compute from stats.
-  const PDD = stats.pdd ?? 0;
-  const MDD = stats.mdd ?? 0;
-  const statWDEF = Math.min(30000,
-    1.2 * (stats.str ?? 0) + 0.5 * ((stats.dex ?? 0) + (stats.luk ?? 0)) + 0.4 * (stats.int ?? 0) + PDD,
-  );
-  const statMDEF = Math.min(30000,
-    0.4 * (stats.str ?? 0) + 0.5 * ((stats.dex ?? 0) + (stats.luk ?? 0)) + 1.2 * (stats.int ?? 0) + MDD,
-  );
+export function incomingDamageBounds(stats, target, attack, output) {
+  const gap = stats.level - target.level;
+  const a = incomingLevelFactor(gap);
   const defense =
-    stats.defense ?? (magic ? statMDEF : statWDEF);
-
-  const reductionFactor = 1 - Math.sqrt(defense / 4) / (attack + (stats.level ?? 0) * 0.5);
-  const clamped = Math.max(0, Math.min(1, reductionFactor));
-
-  output.minimum = Math.max(1, Math.floor(attack * clamped));
-  output.maximum = output.minimum; // same formula for both; caller randomises
+    stats.defense ??
+    1.5 * (stats.str ?? 0) + 0.4 * ((stats.dex ?? 0) + (stats.luk ?? 0)) + (stats.pdd ?? 0);
+  const reduction = defenseLevelFactor(gap) * defense;
+  output.minimum = a * (0.85 * attack - Math.min(reduction, 0.68 * attack));
+  output.maximum = a * (attack - Math.min(reduction, 0.8 * attack));
   return output;
 }
 
