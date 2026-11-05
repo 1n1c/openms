@@ -499,21 +499,25 @@ export class OnlineWorld {
     const baseAttack = info.PADamage ?? 0;
     const target = actor.profile;
     const bounds = {};
+    // incomingDamageBounds(stats, target, attack, output):
+    //   stats = PLAYER stats (str/dex/luk/int/pdd/mdd/level/defense → WDEF reduction)
+    //   target = MONSTER info (level used only for future extensions)
+    //   attack = mob's base PADamage
+    // Server was passing mob projected as stats and player as target (reversed),
+    // which fed mob.PDRate (percentage, e.g. 20) into sqrt(defense/4) producing
+    // ~zero reduction. Player defense must come from player's WDEF/pdd.
     incomingDamageBounds(
       {
-        level: info.level ?? mob.template.info.level ?? 1,
-        defense: info.PDRate ?? 0,
-        str: info.str ?? 0,
-        dex: info.dex ?? 0,
-        luk: info.luk ?? 0,
-        attack: baseAttack,
-      },
-      {
         level: target.level,
-        defense: target.stats?.defense ?? 0,
+        str: target.stats?.str ?? 0,
+        dex: target.stats?.dex ?? 0,
+        luk: target.stats?.luk ?? 0,
+        int: target.stats?.int ?? 0,
         pdd: target.stats?.pdd ?? 0,
         mdd: target.stats?.mdd ?? 0,
+        defense: target.stats?.defense ?? 0,
       },
+      info,
       baseAttack,
       bounds,
     );
