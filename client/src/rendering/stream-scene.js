@@ -255,7 +255,10 @@ export class StreamScene {
       action = actor.avatar?.standAction ?? "stand1";
     actor.setPosition(pose.x, pose.y);
     // Original extracted artwork faces left; positive direction mirrors it.
-    actor.container.scale.x = pose.facing > 0 ? -1 : 1;
+    // actor.container.scale.x = pose.facing > 0 ? -1 : 1;
+    // Climbing poses use authored back-facing art — never mirror those.
+    const climbAction = action === "ladder" || action === "rope" || action === "ladder2" || action === "rope2";
+    actor.container.scale.x = climbAction ? 1 : (pose.facing > 0 ? -1 : 1);
     // 00930b27 modulates actor artwork, not independent name/effect layers.
     actor.setTint(pose.tint ?? 0xffffff);
     const playback =

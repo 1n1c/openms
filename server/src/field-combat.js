@@ -120,19 +120,21 @@ export function beginAttack(world, actor) {
   return { code: "OK" };
 }
 
+function isEligibleTarget(actor) {
+  return (
+    actor.profile.hp > 0 &&
+    actor.skillField &&
+    actor.state === "active" &&
+    !actor.retiring &&
+    !actor.deliveryError
+  );
+}
+
 function nearestTarget(field, mob) {
   let target = null,
     distance = Infinity;
   for (const actor of field.characters.values()) {
-    if (
-      actor.profile.hp <= 0 ||
-      !actor.skillField ||
-      actor.state !== "active" ||
-      actor.retiring ||
-      actor.deliveryError
-    ) {
-      continue;
-    }
+    if (!isEligibleTarget(actor)) continue;
     const dx = actor.simulation.x - mob.x,
       dy = actor.simulation.y - mob.y;
     const squared = dx * dx + dy * dy;
@@ -142,6 +144,31 @@ function nearestTarget(field, mob) {
     }
   }
   return target;
+}
+
+/** Prefer the actor who is actually hurting this mob, so aggro and kill credit
+ *  stay in lockstep. When the mob has aggro and a damage record exists, chase the
+ *  highest-contributor actor (falling back to damageOwnerId if damageCredit is empty).
+ *  Otherwise — first encounter, aggro expired with no records, or the preferred actor
+ *  became ineligible — fall back to nearest target. BOSS mobs already skip
+ *  admitMobAggro so aggro.damageInstances stays 0 and they fall straight through
+ *  to nearestTarget, preserving the "surround the boss" fairness. */
+function selectMobTarget(field, mob) {
+  if (mob.aggro?.damageInstances > 0) {
+    let preferred = null;
+    if (mob.damageCredit?.size > 0) {
+      preferred = [...mob.damageCredit.values()].sort(
+        (a, b) => b.damage - a.damage,
+      )[0]?.actor;
+    }
+    if (!preferred && mob.damageOwnerId) {
+      preferred = field.characters.get(mob.damageOwnerId);
+    }
+    if (preferred && isEligibleTarget(preferred)) {
+      return preferred;
+    }
+  }
+  return nearestTarget(field, mob);
 }
 
 function scheduledMobImpact(field, mob, amount, hit) {
@@ -194,7 +221,7 @@ export function advanceCombat(world, field) {
 }
 
 function advanceSharedMob(field, mob) {
-  const target = nearestTarget(field, mob);
+  const target = selectMobTarget(field, mob);
   mob.targetId = target?.id ?? null;
   const prior = mob.action;
   const alive = mob.alive;
@@ -258,16 +285,16 @@ function advanceCombatActor(world, actor) {
 
 export function advanceMobAttack(world, field, mob) {
   if (mob.incomingDeliveries) return;
-  const selected = nearestTarget(field, mob);
+  const selected = selectMobTarget(field, mob);
   if (!selected || !selected.skillField.mobAttackAllowed(mob)) return;
   if (mob.state !== "attack") {
-    beginSharedMobAttack(field, mob);
+    beginSharedMobAttack(world, field, mob);
     return;
   }
-  releaseSharedMobAttack(field, mob);
+  releaseSharedMobAttack(world, field, mob);
 }
 
-function beginSharedMobAttack(field, mob) {
+function beginSharedMobAttack(world, field, mob) {
   const previous = mob.action;
   for (const actor of field.characters.values()) {
     if (
@@ -296,7 +323,7 @@ function authoredRecipient(actor, mob) {
   return true;
 }
 
-function releaseSharedMobAttack(field, mob) {
+function releaseSharedMobAttack(world, field, mob) {
   const attack = mob.pendingAttack;
   if (
     !attack ||
@@ -325,14 +352,50 @@ function releaseSharedMobAttack(field, mob) {
   if (!recipients.length) return;
   const source = recipients[0].captureIncomingSource(mob);
   mob.incomingDeliveries = recipients.length;
-  for (const runtime of recipients) {
+
+  // Phase 4 (RNG sync, route A): pre-compute incoming damage for every recipient
+  // synchronously here and broadcast the preview to all clients. Each client can
+  // then render the incoming damage number using the server's authoritative RNG
+  // roll instead of its own divergent local roll, eliminating "client saw crit
+  // but server rolled non-crit" discrepancies.
+  //
+  // The pre-computed outcome is reused as acceptIncoming's `prepared` slot so
+  // prepareIncoming returns it directly — ONE roll = one truth, no mismatch.
+  const magic = attack.properties.magic === 1;
+  const outcomes = recipients.map((runtime) =>
+    runtime.prepareMobHit(
+      runtime.captureIncomingSource(mob),
+      magic,
+      attack.action,
+      runtime.actor.profile,
+    ),
+  );
+  world.broadcast(field, {
+    type: "event",
+    fieldEpoch: field.epoch,
+    event: {
+      kind: "combat.incoming-preview",
+      mobId: mob.id,
+      attackAction: attack.action,
+      previews: outcomes.map((o, i) => ({
+        targetId: recipients[i].actor.id,
+        damage: o.hit?.amount ?? 0,
+        critical: o.hit?.critical ?? false,
+        admitted: !!o.admitted,
+      })),
+    },
+  });
+
+  for (let i = 0; i < recipients.length; i++) {
+    const runtime = recipients[i];
     runtime.acceptIncoming(
       source,
-      attack.properties.magic === 1,
+      magic,
       attack.action,
       () => {
         mob.incomingDeliveries--;
       },
+      outcomes[i].admitted ? outcomes[i] : null,
     );
   }
 }
@@ -395,6 +458,7 @@ export function mobCombatFields(mob) {
       hp: mob.hp,
       maxHP: mob.maxHP,
       opacity: mob.opacity,
+      level: mob.template.info.level ?? 1,
       nameRemainingMs: mob.nameRemainingMs,
       nameVisible: Boolean(
         mob.visible &&

@@ -1,6 +1,7 @@
 import { centerDrop } from "../world/drop-artwork.js";
 import { collectDrop, dropDrawY, DROP_MOTION } from "../world/drop-motion.js";
 import { DROP_POLICY } from "../world/drop-rules.js";
+import { DROP_OWNER_MS } from "../../../shared/drop-protocol.js";
 
 const MAX_PICKUP_PRESENTATIONS = 4096;
 
@@ -48,20 +49,52 @@ function pickupOwnerAllows(info, identity, now) {
   );
 }
 
+/** Returns true if this drop should render for the current client.
+ *  Unlike pickupOwnerAllows (which compares server-side ownerUntil with the
+ *  caller's wall clock), this uses a motionNow-based countdown so that two
+ *  clients with drifting wall-clocks always agree with the server's pickup
+ *  permission window — they each start their local countdown from the moment
+ *  they first observe the drop, using DROP_OWNER_MS from shared constants. */
+function dropVisibleTo(info, dropId, selfId, motionNow, clientOwnerExpires) {
+  // Party info not wired through OnlineScene yet — simplified identity means
+  // party members' drops in the claim window also hide. Revisit if needed.
+  // playerDrop = true means the item was thrown by a player (not from a mob
+  // kill or reactor), and the server grants zero protection — all players on
+  // the field see it immediately.
+  if (!info.ownerId || info.ownerId === selfId || info.playerDrop) return true;
+  // No client-side expiry recorded yet: drop is freshly observed — start
+  // the countdown from the current motionNow.
+  let expiresAt = clientOwnerExpires.get(dropId);
+  if (expiresAt === undefined) {
+    expiresAt = motionNow + DROP_OWNER_MS;
+    clientOwnerExpires.set(dropId, expiresAt);
+  }
+  return motionNow >= expiresAt;
+}
+
 /** Retains display ownership after a server-confirmed pickup, never inventory ownership. */
 export class SceneDrops {
   constructor(owner) {
     this.owner = owner;
     this.pickups = new Map();
+    this._ownerExpires = new Map(); // dropId → motionNow-based expiry timestamp
+  }
+
+  remove(dropId) {
+    this._ownerExpires.delete(dropId);
   }
 
   observe(view) {
-    const animation = view.animation;
+    const info = view.entity.dropInfo;
     const motion = view.motion;
-    animation.container.visible = motion.visible;
+    const motionNow = this.owner.motionNow;
+    const baseVisible =
+      motion.visible && dropVisibleTo(info, view.entity.id, this.owner.selfId, motionNow, this._ownerExpires);
+    const animation = view.animation;
+    animation.container.visible = baseVisible;
     animation.container.rotation = motion.rotation;
     animation.container.alpha = motion.alpha;
-    animation.container.eventMode = view.entity.dropInfo.disappearing
+    animation.container.eventMode = info.disappearing
       ? "none"
       : "static";
     animation.setPosition(motion.x, motion.renderY(centerDrop(animation)));

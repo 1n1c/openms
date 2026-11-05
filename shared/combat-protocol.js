@@ -152,6 +152,7 @@ export const COMBAT_ENTITY_FIELDS = {
       hp: u32,
       maxHP: u32,
       opacity: number(0, 1, false),
+      level: number(1, 200),
       generation: u32,
       movementType: number(0, 3),
       phase: string(/^[a-z-]{1,64}$/, 64),
@@ -250,6 +251,20 @@ export const COMBAT_EVENT_SCHEMAS = {
     actorId: id,
     window: enumeration("EnchantSkill"),
   }),
+  "combat.incoming-preview": record({
+    kind: enumeration("combat.incoming-preview"),
+    mobId: id,
+    attackAction: actionName,
+    previews: array(
+      record({
+        targetId: id,
+        damage: number(0, COMBAT_VALUE_LIMIT),
+        critical: boolean,
+        admitted: boolean,
+      }),
+      32,
+    ),
+  }),
 };
 export const COMBAT_RESULT_SCHEMAS = {
   "skill.cast": record({
@@ -289,3 +304,18 @@ export const COMBAT_RESULT_SCHEMAS = {
     incomingId: id,
   }),
 };
+
+/** Shared player-hit presentation parameters. Server uses the authoritative
+ *  OfflineField blink algorithm; the online client must not re-implement it with
+ *  variable-elapsed render-frame arithmetic, so it imports these raw values from here. */
+export const PLAYER_HIT = Object.freeze({
+  timerMs: 1500,
+  tickMs: 30,
+  ticksPerPhase: 2,
+  alertMs: 5000,
+  horizontalImpulse: 270,
+  verticalImpulse: -270,
+  noDirection: 0x7fffffff,
+  normalTint: 0xffffff,
+  hitTint: 0x808080,
+});

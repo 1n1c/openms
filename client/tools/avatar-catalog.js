@@ -1,6 +1,6 @@
 import { avatarMaps, extractAvatarRecord } from "./avatar-data.js";
 import { equippedSlots } from "../src/items/inventory-model.js";
-import { extractProjectiles } from "./combat-data.js";
+import { extractProjectiles, extractHitEffects } from "./combat-data.js";
 import { extractEquipmentEffects } from "./equipment-effect-data.js";
 
 const MAX_IMAGES = 50000;
@@ -126,6 +126,34 @@ async function packageRecord(context, record) {
       actions: { default: packaged },
     });
   }
+
+  // Afterimage entities: inject AI textures into this bundle's atlas.
+  // We create one entity per facing whose single "frame" has one part per unique
+  // AI texture — this forces all AI textures into the atlas manifest.
+  if (record.combat?._afterimageTexts) {
+    for (const [facing, textKeys] of Object.entries(record.combat._afterimageTexts)) {
+      if (!textKeys?.length) continue;
+      entities.push({
+        id: `avatar:${record.id}:ai${facing}`,
+        order: entities.length,
+        kind: "character",
+        x: 0, y: 0, z: 0,
+        visible: false, // never rendered as part of the weapon action
+        flip: false, opacity: 1,
+        action: "default",
+        actions: {
+          default: [{
+            delay: 1,
+            parts: textKeys.map((textureKey, i) => ({
+              texture: textureKey,
+              x: 0, y: 0, z: i,
+            })),
+          }],
+        },
+      });
+    }
+  }
+
   return context.bundle({
     id: `avatar:${record.id}`,
     entities,
@@ -166,5 +194,6 @@ export async function extractAvatarCatalog(context, items) {
     skins,
     equipmentEffects: await extractEquipmentEffects(context, wanted),
     projectiles: await extractProjectiles(context, items),
+    hitEffects: await extractHitEffects(context),
   };
 }

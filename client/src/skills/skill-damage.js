@@ -93,7 +93,7 @@ export class SkillDamage {
     const percent =
       skillDamagePercent(skill, info) * (context.skillPercentScale ?? 1);
     let damage =
-      (this.generator.weaponDamage(context.stats, context.use) * percent) / 100;
+      (this.generator.weaponDamage(context.stats, context.use, magic ? "magic" : "physical") * percent) / 100;
     damage = this.skillModifiers(damage, skill, context, magic);
     damage *= damageBonusMultiplier(context.stats, target.boss);
     damage *= monsterDefenseMultiplier(

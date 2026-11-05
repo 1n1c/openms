@@ -123,6 +123,14 @@ export class RemoteMotion {
         : Math.min(distance, CORRECTION_PX_PER_MS * dt);
     this.x += (errorX / distance) * step;
     this.y += (errorY / distance) * step;
+    // Quantize the drawn pose to integer pixels after each sample.
+    // Without this, the correction chase (CORRECTION_PX_PER_MS * dt) accumulates
+    // sub-pixel float offsets that oscillate across Math.trunc() boundaries
+    // in EntityAnimation.setPosition(), producing a 1px visible jitter on every
+    // static mob. Rounding after each sample keeps the chase convergence smooth
+    // without ever landing on a non-integer frame pixel.
+    this.x = Math.round(this.x);
+    this.y = Math.round(this.y);
     return this;
   }
 

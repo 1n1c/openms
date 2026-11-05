@@ -55,7 +55,6 @@ export class LocalHits {
       actionWeapon(this.avatarCombat(), record.action),
     );
     const spec = record.spec;
-    // Charge releases carry a charge-scaled circle the browser cannot reproduce.
     if (spec?.kind === "charge") return;
     const ray = Boolean(record.projectile);
     if (!ray && !rectangle) return;
@@ -288,34 +287,37 @@ export class LocalHits {
     return true;
   }
 
-  /** Draw the local number and start the local hit reaction. */
+  /** Local prediction for reaction, recoil and sound only.
+   *  Phase 3 (root cause E): we intentionally do NOT render damage numbers here.
+   *  The client's local select picks ALL mobs in the authored rectangle, but the
+   *  server may confirm fewer targets (lag compensation, rewind, etc.). Rendering
+   *  numbers here would leave fake digits on unconfirmed targets for ~1-2 seconds
+   *  until the animation naturally expires. Numbers now flow from the authoritative
+   *  combat.impact event in scene-events.damage(). */
   present(record, view, rolls) {
     if (record.rejected) return;
     const scene = this.combat.scene;
     // A mob that died while a ray was in flight must not receive a corpse number.
     if (!view.entity.mobState?.hp) return;
     if (!scene?.views.has(view.entity.id)) return;
-    const target = scene.events.target(view);
-    if (record.skillId) {
-      for (let line = 0; line < rolls.length; line++) {
-        if (!this.reserve()) return;
-        scene.events.combat.onSkillDamageLine(target, rolls[line].amount, {
-          line,
-          critical: rolls[line].critical,
-          skillId: record.skillId,
-        });
-      }
-    } else {
-      if (!this.reserve()) return;
-      scene.events.combat.onMobHit(target, rolls[0].amount, rolls[0].critical);
-    }
     this.react(view, rolls[0].amount);
     this.recoil(view, rolls[0].amount, record.hitFacing ?? 1);
-    this.playSound(view, rolls[0].amount);
+    this.playSound(view, rolls[0].amount, record);
   }
 
-  playSound(view, amount) {
+  playSound(view, amount, record) {
     if (amount > 0) {
+      // Mark ALL pending entries from this record for this targetId. One present()
+      // call = one local sound regardless of how many damage lines the skill has.
+      // takePrediction splices entries one at a time by line+skillId, so EVERY entry
+      // matching this record must have soundPlayed=true to avoid N audio replays from
+      // N incoming authoritative impact events.
+      const queue = this.pending.get(view.entity.id);
+      if (queue?.length) {
+        for (const entry of queue) {
+          if (entry.record === record) entry.soundPlayed = true;
+        }
+      }
       this.combat.owner.audio?.onMobHit?.(
         {
           x: view.drawX,
@@ -444,17 +446,24 @@ export class LocalHits {
     return view.animation.actions.has(REACTION_ACTION) ? REACTION_ACTION : null;
   }
 
-  /** True when one local prediction already presented this authoritative event. */
+  /** Outgoing impacts: take the matching local prediction (side effects: recoil.confirmed,
+   *  pending splice) and return whether present() actually executed playSound(). This bridges
+   *  the predictive LocalHits path and the authoritative impactAudio path: when playSound ran,
+   *  consume returns true so the authority audio skips (no double-sound). When playSound was
+   *  skipped (select missed the mob, mob dead, view not in scene, amount<=0) consume returns
+   *  false so the authority audio becomes the fallback source.
+   *  NOTE: scene-events.damage() no longer uses the consumed flag for outgoing number rendering —
+   *  Phase 3 moved outgoing digits entirely to the authoritative path. Only impactAudio needs
+   *  this soundPlayed signal. */
   consume(event) {
     if (event.actorId !== this.combat.scene?.selfId) return false;
     const prediction = this.takePrediction(event);
-    if (!prediction || this.now() - prediction.at > PREDICTION_TTL_MS) {
-      return false;
-    }
-    // The authority confirmed the hit, so the predicted recoil is no longer provisional.
+    if (!prediction) return false;
+    // Side effect: mark local knockback as confirmed by authority
     const view = this.combat.scene?.views?.get(event.targetId);
     if (view?.recoil && event.damage > 0) view.recoil.confirmed = true;
-    return event.damage > 0 === prediction.damage > 0;
+    // Return whether playSound actually ran for this prediction.
+    return Boolean(prediction.soundPlayed);
   }
 
   takePrediction(event) {

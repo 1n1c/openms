@@ -13,6 +13,7 @@ const MAX_NUMBERS = 1024;
 const MAX_DIGITS = 16;
 const MAX_PROJECTILES = 128; // Shared ordinary and skill ammunition flight residency.
 const MAX_MAGNET_RESULTS = 32;
+const MAX_HIT_EFFECTS = 64;
 const FAMILIES = ["NoRed", "NoBlue", "NoViolet", "NoCri"];
 const DESTROY = Object.freeze({ children: true });
 
@@ -31,6 +32,9 @@ export class CombatPresentation {
     this.projectileHits = new Map();
     this.projectileActions = new Map();
     this.magnetSlots = [];
+    this.hitEffectOwner = null;
+    this.hitEffectSlots = [];
+    this.hitEffectActions = new Map();
     this.next = 0;
     this.numberPlacement = { x: 0, y: 0, delay: 0, target: null };
     this.emitted = 0;
@@ -107,7 +111,7 @@ export class CombatPresentation {
     this.growNumbers(required);
     return this.slots.length;
   }
-  async prepare(catalog, signal, projectiles) {
+  async prepare(catalog, signal, projectiles, hitEffects) {
     if (this.destroyed || this.owner) {
       throw new Error("Combat presentation is not a fresh owner");
     }
@@ -136,6 +140,16 @@ export class CombatPresentation {
       check(signal);
       if (this.destroyed) throw new Error("Combat presentation was destroyed");
       this.prepareProjectiles();
+      if (hitEffects) {
+        this.hitEffectOwner = await loadVisualBundle(
+          hitEffects,
+          this.services,
+          signal,
+        );
+        check(signal);
+        if (this.destroyed) throw new Error("Combat presentation was destroyed");
+        this.prepareHitEffects();
+      }
       this.owner = owner;
     } catch (error) {
       this.releaseCritical();
@@ -145,6 +159,7 @@ export class CombatPresentation {
         slot.animation.container.destroy(DESTROY);
       }
       this.projectileSlots.length = 0;
+      this.clearHitEffects();
       this.glyphs = null;
       this.projectileOwner?.destroy();
       this.projectileOwner = null;
@@ -416,6 +431,72 @@ export class CombatPresentation {
     }
     this.magnetSlots.length = 0;
   }
+
+  prepareHitEffects() {
+    const entity = this.hitEffectOwner.manifest.entities[0];
+    for (const actionName of Object.keys(entity.actions)) {
+      this.hitEffectActions.set(actionName, actionName);
+    }
+    for (let i = 0; i < MAX_HIT_EFFECTS; i++) {
+      const clone = { ...entity, actions: entity.actions };
+      const animation = new EntityAnimation(clone, this.hitEffectOwner.textures);
+      this.hitEffectSlots.push({ animation, active: false, age: 0, duration: 0 });
+    }
+  }
+
+  clearHitEffects() {
+    for (const slot of this.hitEffectSlots) {
+      this.scene?.removeWorldContainer(slot.animation.container);
+      slot.animation.container.destroy(DESTROY);
+    }
+    this.hitEffectSlots.length = 0;
+    this.hitEffectActions.clear();
+    this.hitEffectOwner?.destroy();
+    this.hitEffectOwner = null;
+  }
+
+  acquireHitEffect() {
+    for (const slot of this.hitEffectSlots) {
+      if (!slot.active) return slot;
+    }
+    // Pool exhausted — reuse oldest
+    let oldest = null;
+    for (const slot of this.hitEffectSlots) {
+      if (!oldest || slot.age > oldest.age) oldest = slot;
+    }
+    return oldest;
+  }
+
+  /** Spawn a weapon hit spark at (x,y). variant is "sword1"/"sword2"/"mace1"/"mace2".
+   *  facing = 1 for right, -1 for left (mirrors the sprite on facing-left). */
+  onHitEffect(x, y, facing, variant) {
+    if (!this.scene || !this.hitEffectOwner) return;
+    const action = this.hitEffectActions.get(variant);
+    if (!action) return;
+    const slot = this.acquireHitEffect();
+    slot.animation.setAction(action, "once");
+    slot.animation.seek(0);
+    slot.animation.setPosition(x, y);
+    slot.animation.container.scale.x = facing > 0 ? 1 : -1;
+    slot.animation.container.visible = true;
+    slot.active = true;
+    slot.age = 0;
+    slot.duration = slot.animation.current.duration;
+    this.scene.addWorldContainer(slot.animation.container, 450000);
+  }
+
+  updateHitEffects(ms) {
+    for (const slot of this.hitEffectSlots) {
+      if (!slot.active) continue;
+      slot.age += ms;
+      slot.animation.advance(ms);
+      if (slot.age < slot.duration) continue;
+      slot.active = false;
+      slot.animation.container.visible = false;
+      this.scene?.removeWorldContainer(slot.animation.container);
+    }
+  }
+
   setScene(scene) {
     for (const slot of this.slots) {
       this.scene?.removeWorldContainer(slot.container);
@@ -429,6 +510,11 @@ export class CombatPresentation {
       slot.animation.container.visible = false;
     }
     for (const slot of this.magnetSlots) {
+      this.scene?.removeWorldContainer(slot.animation.container);
+      slot.active = false;
+      slot.animation.container.visible = false;
+    }
+    for (const slot of this.hitEffectSlots) {
       this.scene?.removeWorldContainer(slot.animation.container);
       slot.active = false;
       slot.animation.container.visible = false;
@@ -600,6 +686,7 @@ export class CombatPresentation {
   update(ms) {
     this.updateProjectiles(ms);
     this.updateMagnet(ms);
+    this.updateHitEffects(ms);
     for (const slot of this.slots) {
       if (slot.age >= 1000) continue;
       const pending = slot.age < 0;
@@ -641,6 +728,7 @@ export class CombatPresentation {
     }
     this.releaseCritical();
     this.clearMagnet();
+    this.clearHitEffects();
     this.projectileOwner?.destroy();
     this.projectileOwner = null;
     this.scene = null;

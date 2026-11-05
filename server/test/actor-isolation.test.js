@@ -58,15 +58,12 @@ test("a client's protocol fault in its movement step closes only that client", (
 
   expect(walker.moved).toBe(true);
   expect(walker.closes).toEqual([]);
-  expect(spammer.neutralized).toBe(true);
-  expect(spammer.closes).toEqual([{ code: 1008, reason: "RATE_LIMITED" }]);
-  expect(published).toEqual([
-    {
-      actor: "spammer",
-      record: { type: "closing", code: "RATE_LIMITED", retryAfterMs: 0 },
-    },
-  ]);
-  expect(logged.map((entry) => entry.event)).toEqual(["actor.rejected"]);
+  // MAX_EDGES=1 — overflow is silently dropped, no RATE_LIMITED, no neutralize.
+  expect(spammer.neutralized).toBeUndefined();
+  expect(spammer.closes).toEqual([]);
+  // No RATE_LIMITED throw → no closing event, no rejection log.
+  expect(published).toEqual([]);
+  expect(logged).toEqual([]);
 });
 
 test("server faults without a protocol code still reach the lifecycle", () => {

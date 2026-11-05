@@ -48,6 +48,19 @@ export function isRangedWeapon(type) {
   return type === 45 || type === 46 || type === 47 || type === 49;
 }
 
+/** Map weaponType to hit.img variant group.
+ *  "sword" → sharp weapons (sword, spear, dagger, polearm) → hit.img/sword{1,2}
+ *  "mace"  → blunt weapons (blunt, axe, fist) → hit.img/mace{1,2}
+ *  null    → ranged/magic (use their own Skill.wz effects, skip hit.img) */
+const SWORD_TYPES = new Set([30, 31, 33, 35, 44]);
+const MACE_TYPES = new Set([32, 34, 43]);
+
+export function weaponHitGroup(type) {
+  if (SWORD_TYPES.has(type)) return "sword";
+  if (MACE_TYPES.has(type)) return "mace";
+  return null;
+}
+
 /** Native008c7f3c: Magical Mitten uses bow arrows, not throwing stars. */
 export function compatibleAmmunition(weaponId, itemId) {
   const type = weaponType(weaponId);
@@ -181,10 +194,11 @@ export function projectileTargetDistance(body, origin, range, start = 0) {
   return Infinity;
 }
 
-/** Shared extraction/preparation/admission boundary; never defer malformed art until durable equip. */
+/** Shared extraction/preparation/admission boundary; never defer malformed art until durable equip.
+ *  Accepts schemaVersion 2 (basic weapon combat) and 3 (+afterimage particles per attack). */
 export function validateWeaponCombat(combat) {
   if (combat === null) return combat;
-  if (combat?.schemaVersion !== 2) {
+  if (combat?.schemaVersion !== 2 && combat?.schemaVersion !== 3) {
     throw new Error("Invalid original equipped combat metadata");
   }
   validateCombatEquipment(combat.equipment);

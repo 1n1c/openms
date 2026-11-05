@@ -493,7 +493,7 @@ function lifeEntity(record, template, planes) {
     z:
       template.metadata.movement?.type === 3
         ? 270100
-        : (record.kind === "npc" ? 29995 : 29991) + (segment?.plane ?? 210000),
+        : (record.kind === "npc" ? 29995 : 29900) + (segment?.plane ?? 210000),
     visible: record.authored.hide !== 1,
     // Cosmic spawnNPC sends f!=1; native006d232a flips when the received bit is0.
     flip:

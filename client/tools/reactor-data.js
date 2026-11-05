@@ -301,9 +301,10 @@ function drawingDepth(map, placement, backTile) {
         if (y === null || y < placement.y - 1 || y >= nearest) continue;
         nearest = y;
         // 00734d30 normal: B+29990+10*(plane*3000-group); 00734fb5 backTile: B+2000+plane*30000.
+        // Reactor base (29800) must be LOWER than mob base (29900) so crates never cover mobs.
         depth = backTile
           ? 2000 + Number(layer.name) * 30000
-          : 29990 + (Number(layer.name) * 3000 - Number(group.name)) * 10;
+          : 29800 + (Number(layer.name) * 3000 - Number(group.name)) * 10;
       }
     }
   }

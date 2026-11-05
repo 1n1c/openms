@@ -77,6 +77,22 @@ function combatAdmissionHooks(context) {
     mobSkills: world.content.catalog.ui.skillCombat.mobSkills,
     skillLevel: (id) => skill().level(id),
     skillInfo: (id, rank) => skill().info(id, rank),
+    // Phase 5 (contact RNG sync): OfflineField.admitIncomingHit calls this before
+    // rolling its own RNG for bodyAttack contact. Returns the client-reported damage
+    // (validated by world.recordContact) or undefined to fall through to local roll.
+    checkContactReport: (mobId) => {
+      const cache = context.actor.contactReports;
+      if (!cache) return undefined;
+      const entry = cache.get(String(mobId));
+      if (!entry) return undefined;
+      // Expire entries older than one field tick — contact damage must be tight.
+      if (context.actor.field.tick - entry.tick > 1) {
+        cache.delete(String(mobId));
+        return undefined;
+      }
+      cache.delete(String(mobId));
+      return entry.damage;
+    },
     activateSkill: (id) => activateCombatSkill(context, id),
     growth: () => skill().growth(),
     derivedStats: () => skill().derived(),

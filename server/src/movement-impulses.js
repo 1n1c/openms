@@ -1,13 +1,16 @@
-import { PROTOCOL, protocolError } from "../../shared/protocol.js";
+import { PROTOCOL } from "../../shared/protocol.js";
 import { applyExternalImpulse } from "../../client/src/physics/simulation.js";
 
 const MAX_GRANTS = 8;
 
-/** The validated cast/hit supplies the vector; a movement report can only consume it. */
+/** The validated cast/hit supplies the vector; a movement report can only consume it.
+ *  Returns the grant id or null when the grant cannot be recorded (stream not ready,
+ *  server-owned motion, or bounded queue is full — in which case the knockback
+ *  impulse is silently skipped for this tick rather than crashing the caller). */
 export function grantMovementImpulse(actor, divert) {
   const stream = actor.movementStream;
   if (!stream || stream.owned) return null;
-  if (stream.grants.length >= MAX_GRANTS) throw protocolError("SERVER_BUSY");
+  if (stream.grants.length >= MAX_GRANTS) return null;
   const grant = {
     ...divert,
     skillId: divert.skillId ?? 0,

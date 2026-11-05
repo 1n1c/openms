@@ -4,7 +4,11 @@ export const TUTORIAL_PORTAL_PROGRAMS = Object.freeze({
     schemaVersion: 1,
     script: "tutoChatNPC",
     source: "scripts/portal/tutoChatNPC.js",
-    sha256: "a3a95daa99e103a322871508d5f5f590792d8cf7a9346f745751c2ba31775169",
+    // All 4 tutorial portal sha256 presets were updated 2026-10-26 to match the
+    // f406ffb (2026-09-14) vendor import of infra/gameplay-definitions/portal/*.js.
+    // Original presets (from 1a88f80 2026-09-12) were computed against scripts
+    // that predated the vendor CRLF+whitespace versions.
+    sha256: "5265c78364c097b972f3b820bc7e71af2ae217eae414369ee6628e564ecd48c5",
     branches: Object.freeze([]),
     openNpc: Object.freeze({ npcId: 2007, minimumAccountLevel: 30 }),
     blockPortal: true,
@@ -14,7 +18,7 @@ export const TUTORIAL_PORTAL_PROGRAMS = Object.freeze({
     schemaVersion: 1,
     script: "infoMinimap",
     source: "scripts/portal/infoMinimap.js",
-    sha256: "a16aabd97ac1aed32d742dd1b6fa4f5a4c0cee3c003d8b9d8df69a6466983938",
+    sha256: "621daf58b866f671dd4c58fd29f5dcc3b3d1403c6d8abd25849fbf9b591c1adf",
     branches: Object.freeze([
       Object.freeze({ questId: 1031, state: 1, path: "UI/tutorial.img/25" }),
     ]),
@@ -25,7 +29,7 @@ export const TUTORIAL_PORTAL_PROGRAMS = Object.freeze({
     schemaVersion: 1,
     script: "infoPickup",
     source: "scripts/portal/infoPickup.js",
-    sha256: "3119f070a4a60b212c4e1ddfa07a519fae23a05a48ea61f7f99eb51060225a09",
+    sha256: "412da97f6ca1f01f8c7b4edf0c05fd3e0fe383971261e9588703dcbf3f41aa30",
     branches: Object.freeze([
       Object.freeze({ questId: 1035, state: 1, path: "UI/tutorial.img/21" }),
     ]),
@@ -36,7 +40,7 @@ export const TUTORIAL_PORTAL_PROGRAMS = Object.freeze({
     schemaVersion: 1,
     script: "infoReactor",
     source: "scripts/portal/infoReactor.js",
-    sha256: "1c488e986e6b9ed5405e84136a7b98ee986144b16b8c2046cdbf938efe4c0272",
+    sha256: "2d519d64ecd03f34a68ed360e7d58df1303b2f71484eab28eabeded7122f2263",
     branches: Object.freeze([
       Object.freeze({ questId: 1008, state: 2, path: "UI/tutorial.img/22" }),
       Object.freeze({ questId: 1020, state: 2, path: "UI/tutorial.img/27" }),
