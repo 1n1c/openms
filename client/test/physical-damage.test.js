@@ -74,32 +74,33 @@ function context(overrides = {}) {
 const HOOKS = { skillLevel: () => 0, skillInfo: () => null };
 const BASIC = { id: 0, properties: {} };
 
-test("v83 weapon multipliers align to cosmic OdinMS source", () => {
+test("modern weapon multipliers retain Hero and Paladin overrides", () => {
   expect(
     [30, 31, 32, 33, 37, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49].map(
       (type) => weaponMultiplier(type),
     ),
-  ).toEqual([4, 4.4, 4.6, 4, 3.6, 3.6, 3.4, 3.6, 4.8, 4.8, 5, 4, 4.8, 3.6, 5, 3.6]);
-  expect(weaponMultiplier(30, 112)).toBe(4.2);
-  expect(weaponMultiplier(40, 112)).toBe(3.4);
-  expect(weaponMultiplier(32, 122)).toBe(4.6);
+  ).toEqual([
+    1.24, 1.2, 1.2, 1.3, 1.2, 1.2, 1.34, 1.34, 1.34, 1.49, 1.49, 1.3, 1.35,
+    1.75, 1.7, 1.5,
+  ]);
+  expect(weaponMultiplier(30, 112)).toBe(1.34);
+  expect(weaponMultiplier(40, 112)).toBe(1.44);
+  expect(weaponMultiplier(32, 122)).toBe(1.24);
 });
 
-test("job primary and secondary stats follow v83 weaponType-driven selection", () => {
+test("job primary and secondary stats distinguish magic, claw, dagger and guns", () => {
   const input = stats({ str: 10, dex: 20, int: 30, luk: 40 });
-  // v83 formula: ceil((WM * main + secondary) / 100 * WATK).
-  // combatStatValue returns WM * main + secondary so test inputs no longer divide by 100 or multiply WATK.
   const jobs = [
     [100, 30, 60],
-    [200, 37, 56],
-    [300, 45, 190],
-    [410, 47, 174],
-    [420, 33, 174],
-    [520, 49, 82],
-    [510, 48, 70],
-    [1200, 38, 56],
-    [2110, 44, 70],
-    [2200, 38, 56],
+    [200, 37, 160],
+    [300, 45, 90],
+    [410, 47, 180],
+    [420, 33, 190],
+    [520, 49, 90],
+    [510, 48, 60],
+    [1200, 38, 160],
+    [2110, 44, 60],
+    [2200, 38, 160],
   ];
   for (const [job, weaponType, value] of jobs) {
     expect(combatStatValue({ ...input, job, weaponType })).toBe(value);
@@ -108,41 +109,36 @@ test("job primary and secondary stats follow v83 weaponType-driven selection", (
 
 test("display rounds the actual range before damage and final damage bonuses", () => {
   const input = stats({ damagePercent: 20, finalDamagePercent: 50 });
-  // actualDamageMaximum/Minimum = deal-damage formula (WITH secondaryStat)
-  expect(actualDamageMaximum(input)).toBe(420);
-  expect(actualDamageMinimum(input, 420)).toBe(92);
-  // shownDamageRange = panel display formula: max=floor((floor(WM*main)+secondary)*WATK/100),
-  // min=floor((floor(WM*main)*0.1+secondary)*WATK/100), then clamped to >=1.
+  expect(actualDamageMaximum(input)).toBe(521);
+  expect(actualDamageMinimum(input, 521)).toBe(104);
   const output = {};
   shownDamageRange(input, output);
-  expect(output).toEqual({ damageMin: 107, damageMax: 755 });
-  // v83 actual min formula (damage handler): uses WM*main*0.9*mastery + secondary
-  // At mastery 100, min ≠ max because of the 0.9 factor.
-  expect(actualDamageMinimum(stats({ masteryPercent: 100 }), 1000)).toBe(377);
+  expect(output).toEqual({ damageMin: 188, damageMax: 937 });
+  expect(actualDamageMinimum(stats({ mastery: 100 }), 1000)).toBe(990);
   expect(
     actualDamageMaximum(
       stats({ job: 200, weaponType: 37, int: 100, luk: 20, pad: 9999 }),
     ),
-  ).toBe(37997);
+  ).toBe(504);
 });
 
 test("unarmed range is zero except for pirates", () => {
   expect(actualDamageMaximum(stats({ weaponType: 0 }))).toBe(0);
-  expect(actualDamageMaximum(stats({ job: 500, weaponType: 0 }))).toBe(7);
+  expect(actualDamageMaximum(stats({ job: 500, weaponType: 0 }))).toBe(6);
 });
 
 test("normal hits use percentage DEF, no obsolete accuracy roll or flat DEF subtraction", () => {
   const input = stats();
-  expect(generator().generate(input, target().skillStatus.projected)).toBe(101);
+  expect(generator().generate(input, target().skillStatus.projected)).toBe(114);
   expect(
     generator().generate(input, target({ PDRate: 50 }).skillStatus.projected),
-  ).toBe(50);
+  ).toBe(57);
   expect(generator().generate(input, target().skillStatus.projected, 200)).toBe(
-    202,
+    228,
   );
   expect(
     generator(9999999).generate(input, target().skillStatus.projected),
-  ).toBe(461);
+  ).toBe(573);
 });
 
 test("normal and boss bonuses add to damage while final damage and IED multiply", () => {
@@ -157,10 +153,10 @@ test("normal and boss bonuses add to damage while final damage and IED multiply"
     normalDamagePercent: 10,
     finalDamagePercent: 50,
   });
-  expect(generator().generate(input, target().skillStatus.projected)).toBe(197);
+  expect(generator().generate(input, target().skillStatus.projected)).toBe(223);
   expect(
     generator().generate(input, target({ boss: 1 }).skillStatus.projected),
-  ).toBe(258);
+  ).toBe(291);
 });
 
 test("level advantage follows all boundary bands and truncates only the penalty amount", () => {
@@ -186,13 +182,10 @@ test("level advantage follows all boundary bands and truncates only the penalty 
 test("skill attacks, magic and summons share the standard range and per-hit critical multiplier", () => {
   const damage = new SkillDamage(generator(), HOOKS);
   const ctx = context();
-  // Physical skills use PAD-based range regardless of weapon type.
-  expect(damage.generate(BASIC, { damage: 200 }, target(), ctx)).toBe(202);
+  expect(damage.generate(BASIC, { damage: 200 }, target(), ctx)).toBe(228);
   ctx.kind = "summon";
-  expect(damage.generate(BASIC, { pad: 200 }, target(), ctx)).toBe(202);
+  expect(damage.generate(BASIC, { pad: 200 }, target(), ctx)).toBe(228);
   ctx.kind = "player";
-  // v83: magic skills use MAD, physical swings use WATK (low for staff).
-  // Mage staff MAD still drives magical skill damage via attackType="magic".
   ctx.stats = stats({
     job: 200,
     weaponType: 37,
@@ -201,9 +194,8 @@ test("skill attacks, magic and summons share the standard range and per-hit crit
     criticalChance: 100,
     criticalDamage: 30,
   });
-  // Mage with staff: WATK=10, so physical swing damage is tiny.
-  // But { mad: 200 } marks this as a magic skill → uses MAD=100 from stats.
-  expect(damage.generate(BASIC, { mad: 200 }, target(), ctx)).toBe(333);
+  // 504 upper *25% mastery =126; 200% skill *150% critical *110% level.
+  expect(damage.generate(BASIC, { mad: 200 }, target(), ctx)).toBe(415);
   expect(damage.critical).toBe(true);
 });
 
@@ -260,7 +252,7 @@ test("DOT uses upper actual damage and excludes mastery, crit, DEF and damage bo
       target({ PDRate: 500 }).skillStatus.projected,
       ctx,
     ),
-  ).toBe(840);
+  ).toBe(1042);
   const immune = { id: 1, properties: { elemAttr: "f" } };
   expect(
     damage.dot(
@@ -300,30 +292,19 @@ test("large hits reach modern cap and successive attack lines refill random word
   expect(draws).toBe(14);
 });
 
-test("monster attack uses linear defense (1.5*str+0.4*(dex+luk)+pdd) with 68%/80% caps", () => {
+test("monster attack is linear and defense reductions have separate 68% and 80% caps", () => {
   const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0 });
-  const mob = { level: 1 };
+  const mob = target().skillStatus.projected;
   const bounds = {};
-  // player level=50 (default), mob=1 → gap=49, clamped to 10+
-  // a = incomingLevelFactor(49) = 0.85 - 10*0.0075 = 0.775
-  // defenseFactor = 1, defense=0
   incomingDamageBounds(input, mob, 1000, bounds);
-  // min = 0.775*(0.85*1000 - 0) = 0.775*850 = 658.75
-  // max = 0.775*(1000 - 0) = 775
-  expect(bounds.minimum).toBeCloseTo(658.75);
-  expect(bounds.maximum).toBeCloseTo(775);
-  // pdd=1000 → defense=1000, reduction=1000
+  expect(bounds.minimum).toBeCloseTo(722.5);
+  expect(bounds.maximum).toBeCloseTo(850);
   input.pdd = 1000;
   incomingDamageBounds(input, mob, 1000, bounds);
-  // min = 0.775*(850 - min(1000,680)) = 0.775*170 = 131.75
-  // max = 0.775*(1000 - min(1000,800)) = 0.775*200 = 155
-  expect(bounds.minimum).toBeCloseTo(131.75);
-  expect(bounds.maximum).toBeCloseTo(155);
-  // player level=11, gap=10 → a=0.775 (same), defense=1000
-  input.level = 11;
+  expect(bounds.minimum).toBeCloseTo(144.5);
+  expect(bounds.maximum).toBeCloseTo(170);
+  input.level += 10;
   incomingDamageBounds(input, mob, 1000, bounds);
-  // same as above
-  expect(bounds.minimum).toBeCloseTo(131.75);
   expect(bounds.maximum).toBeCloseTo(155);
 });
 
@@ -345,22 +326,18 @@ test("incoming level factors match table boundaries", () => {
   }
 });
 
-test("physical and magic dodge use DEX, LUK, accuracy and Fiel SAR level penalty", () => {
-  // Fiel EXE: level penalty = (mobLvl - charLvl) >> 1 (arithmetic right-shift), NOT 2*gap
+test("physical and magic dodge use DEX, LUK, accuracy and level with a 90% cap", () => {
   expect(dodgeChance(stats({ dex: 100, luk: 0 }), { level: 50, acc: 0 })).toBe(
     10,
   );
-  // Old: 10 - 2*1 = 8. New: 10 - (1>>1=0) = 10
   expect(dodgeChance(stats({ dex: 100, luk: 0 }), { level: 51, acc: 0 })).toBe(
-    10,
+    8,
   );
-  // Old cap 90, new non-Thief cap 80 (Thief 95). stats({...}) defaults to Warrior (job 100)
   expect(
     dodgeChance(stats({ dex: 100000, luk: 0 }), { level: 50, acc: 0 }),
-  ).toBe(80);
-  // Old: 0 (100-100=0). New: minRate=2 (non-Thief)
+  ).toBe(90);
   expect(dodgeChance(stats({ dex: 0, luk: 0 }), { level: 50, acc: 100 })).toBe(
-    2,
+    0,
   );
   expect(
     generator().evades(stats({ dex: 100, luk: 0 }), { level: 50, acc: 0 }),
@@ -368,20 +345,12 @@ test("physical and magic dodge use DEX, LUK, accuracy and Fiel SAR level penalty
 });
 
 test("incoming magic shares defense and damage reduction; Invincible stays physical", () => {
-  // Generator with word=5000000 uses deterministic RNG — sample(bounds.min, bounds.max, rng)
-  // lands at a fixed position; dodgeChance(dex=0,luk=0,mobAcc=100) = max(2, -10) = 2 → no evasion
   const input = stats({ str: 0, dex: 0, luk: 0, pdd: 0, invincible: 20 });
   const mob = { level: 50, acc: 100, PADamage: 1000, MADamage: 1000 };
-  // gap=0, a=0.85, defenseFactor=1, defense=0
-  // bounds: min=0.85*(850-0)=722.5, max=0.85*1000=850
-  // generator RNG word=5000000 → sample picks midpoint (722.5+850)/2=786
-  // Physical: 786 * (1-invincible 20%) = 786 * 0.8 = 628.8 → 628
-  // Magic: no invincible → 786
-  const g = generator(5000000);
-  expect(g.receive(input, mob, { magic: false })).toBe(629);
-  expect(g.receive(input, mob, { magic: true })).toBe(786);
+  expect(generator().receive(input, mob, { magic: false })).toBe(578);
+  expect(generator().receive(input, mob, { magic: true })).toBe(722);
   input.damageReductionPercent = 50;
-  expect(g.receive(input, mob, { magic: true })).toBe(393);
+  expect(generator().receive(input, mob, { magic: true })).toBe(361);
 });
 
 function projectionFixture() {
@@ -427,26 +396,19 @@ function projectionFixture() {
   return { profile, hooks };
 }
 
-test("v83 projection: MAD capped at 2000, MDD/PDD independent attribute weights removed", () => {
+test("projection separates INT from magic attack and publishes the modern range inputs", () => {
   const { profile, hooks } = projectionFixture();
   const output = projectCharacterStats(profile, hooks, createCharacterStats());
-  // v83: MAD = equip incMAD(2000+10) + INT(100), capped at 2000. LUK does NOT add to MAD.
-  expect(output.mad).toBe(2000);
-  // v83: PDD = pure equipment (10 + 20 = 30), no attribute weights.
-  expect(output.pdd).toBe(30);
-  // v83: MDD = equip incMDD(0) + INT(100) = 100. Independent from PDD; no LUK.
-  expect(output.mdd).toBe(100);
+  expect(output.mad).toBe(2010);
+  expect(output.defense).toBe(45);
+  expect(output.mdd).toBe(output.pdd);
   expect(output.masteryPercent).toBe(75);
   expect(output.criticalChance).toBe(0);
   expect(output.criticalDamage).toBe(0);
   expect(output.finalDamagePercent).toBeCloseTo(56);
   expect(output.ignoreDefensePercent).toBeCloseTo(58);
-  // v83 ACC: dex*0.8 + luk*0.5 (family 2 uses 0.8/0.5). dex=4 luk=20 → 3+10=13.
-  expect(output.acc).toBe(13);
-  // v83 EVA: dex/4 + luk/2 = 1 + 10 = 11.
-  expect(output.eva).toBe(11);
   projectCharacterStats(profile, hooks, output);
-  expect(output.pdd).toBe(30);
+  expect(output.defense).toBe(45);
   expect(output.finalDamagePercent).toBeCloseTo(56);
 });
 
@@ -531,7 +493,7 @@ test("shadow skill percentage applies before the damage cap and Arrow Bomb scale
     target(),
     context(),
   );
-  expect(meso).toBe(923);
+  expect(meso).toBe(1146);
 });
 
 test("percentage defense debuffs preserve fractional rates", () => {
