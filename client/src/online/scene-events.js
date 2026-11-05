@@ -186,12 +186,11 @@ export class SceneEvents {
    *  weapons use their own Skill.wz visuals and skip this. */
   spawnHitEffect(event) {
     if (event.cause !== "basic") return;
-    // Determine weapon type from the local actor's equipped combat data.
     const actor = this.owner.scene?.actor;
     const weaponType = actor?.avatar?.combat?.weaponType;
     if (!weaponType) return;
     const group = weaponHitGroup(weaponType);
-    if (!group) return; // ranged/magic — hit.img not used
+    if (!group) return;
     const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
     // Hit position from server-authoritative event; facing from actor animation.
     const pos = event.position;
