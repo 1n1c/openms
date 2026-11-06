@@ -49,11 +49,11 @@ export function isRangedWeapon(type) {
 }
 
 /** Map weaponType to hit.img variant group.
- *  "sword" → sharp weapons (sword, spear, dagger, polearm) → hit.img/sword{1,2}
- *  "mace"  → blunt weapons (blunt, axe, fist) → hit.img/mace{1,2}
- *  null    → ranged/magic (use their own Skill.wz effects, skip hit.img) */
+ *  "sword" → sharp melee (sword, spear, dagger, polearm) → hit.img/sword{1,2}
+ *  "mace"  → blunt + ranged (blunt, axe, bow, crossBow) → hit.img/mace{1,2}
+ *  null    → other ranged/magic (use their own Skill.wz effects, skip hit.img) */
 const SWORD_TYPES = new Set([30, 31, 33, 35, 43, 44]);
-const MACE_TYPES = new Set([32, 34]);
+const MACE_TYPES = new Set([32, 34, 45, 46]); // bow(45)/crossBow(46) → mace per original MapleStory
 
 export function weaponHitGroup(type) {
   if (SWORD_TYPES.has(type)) return "sword";
@@ -240,11 +240,11 @@ function validateCombatAttacks(combat) {
 
 function validateCombatRectangle(combat, name) {
   const rectangle = combat.attacks[name].rectangle;
-  if (
-    rectangle === null &&
-    RANGED_ACTIONS[combat.equipment.attack]?.includes(name)
-  ) {
-    return;
+  if (rectangle === null) {
+    const rangedForCategory = RANGED_ACTIONS[combat.equipment.attack];
+    if (rangedForCategory?.includes(name)) return;
+    if (name === "proneStab") return;
+    if (name === "shoot1" || name === "shoot2" || name === "shot") return;
   }
   validateAttackRectangle(rectangle);
 }

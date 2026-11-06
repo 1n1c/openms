@@ -58,7 +58,10 @@ function standardDefense(context) {
  *  Each canvas has delay (AI frame duration ms), a1 (end alpha 0-255), origin.
  *  Returns [{spawnFrame, delay, alphaEnd, parts:[{texture,x,y,z}]}] or null. */
 async function extractAfterimageFrames(context, actionNode) {
-  // Collect canvas groups keyed by their numeric directory name (the spawnFrame!).
+  const childKeys = Object.keys(actionNode.children ?? {});
+  const numericDirs = childKeys.filter(k => /^\d+$/.test(k));
+  const hasTopLevelRect = actionNode.children?.lt && actionNode.children?.rb;
+
   const groups = [];
   for (const [dirName, child] of Object.entries(actionNode.children)) {
     if (!/^\d+$/.test(dirName)) continue;
@@ -72,32 +75,29 @@ async function extractAfterimageFrames(context, actionNode) {
     }
     if (canvases.length) {
       canvases.sort((a, b) => Number(a.name) - Number(b.name));
-      groups.push({ spawnFrame: Number(dirName), canvases });
+      groups.push({ frameIndex: Number(dirName), canvases });
     }
   }
   if (!groups.length) return null;
-  groups.sort((a, b) => a.spawnFrame - b.spawnFrame);
+  groups.sort((a, b) => a.frameIndex - b.frameIndex);
 
   const frames = [];
-  for (const { spawnFrame, canvases } of groups) {
+  for (const { frameIndex, canvases } of groups) {
     for (const { node: canvasNode } of canvases) {
       if (frames.length >= MAX_AFTERIMAGE_FRAMES) {
         throw new Error("Afterimage frame bound exceeded");
       }
-      // context.part() returns {texture, x, y, z} where x/y ALREADY have
-      // origin subtracted (part.x = -origin.x, part.y = -origin.y).
-      // This exactly matches GM AfterImage.pas:
-      //   Offset.X := -origin.X (MirrorX=False)
-      //   Offset.Y := -origin.Y
       const part = await context.part(canvasNode);
       const delayRaw = value(canvasNode, "delay", null);
       const delay = delayRaw === null ? 120 : Number(delayRaw);
       const a1Raw = value(canvasNode, "a1", -1);
       const a1 = Number(a1Raw);
-      // a1 = target end alpha 0-255; -1 = no fade (stay opaque).
       const alphaEnd = a1 < 0 ? 1 : a1 / 255;
       frames.push({
-        spawnFrame,
+        // spawnFrame = numeric dir name (matches MapleStory Afterimage.firstframe)
+        // melee swingT2/dir"2" → spawnFrame=2 (wait till attack anim frame 2)
+        // ranged shoot1/dir"2" → spawnFrame=2
+        spawnFrame: frameIndex,
         delay,
         alphaEnd,
         parts: [{ ...part, opacity: 1 }],
@@ -137,19 +137,25 @@ export async function extractWeaponCombat(context, weaponId) {
       if (children.length > MAX_ACTIONS) throw new Error("Weapon action limit");
       for (const [name, child] of children) {
         const node = resolveNode(child);
-        if (!node.children.lt || !node.children.rb) continue;
-        attacks[name] = { rectangle: readRectangle(node, `Character.wz:${afterimagePath}/0/${name}`) };
+        if (node.children.lt && node.children.rb) {
+          attacks[name] = { rectangle: readRectangle(node, `Character.wz:${afterimagePath}/0/${name}`) };
+        } else if (!attacks[name]) {
+          // Ranged actions (shoot1/shoot2 on bow/crossBow/gun) have no
+          // lt/rb rectangle but still need an attack entry so afterimage
+          // frames can be attached and animation code can play them.
+          attacks[name] = { rectangle: null };
+        }
       }
 
-      // Afterimage visual frames — one list per (action, facing).
-      schemaVersion = 3; // promoted: afterimage file exists
+      // Afterimage visual frames — independent of rectangle presence.
+      schemaVersion = 3;
       for (const facing of [0, 1]) {
         let facingRoot;
         try { facingRoot = at(context.image("Character", afterimagePath), String(facing)); } catch { continue; }
         if (!facingRoot?.children) continue;
         for (const [actionName, actionNode] of Object.entries(facingRoot.children)) {
+          if (!attacks[actionName]) attacks[actionName] = { rectangle: null };
           const attack = attacks[actionName];
-          if (!attack) continue;
           const frames = await extractAfterimageFrames(context, actionNode);
           if (!frames?.length) continue;
           attack.afterimage ||= Object.create(null);

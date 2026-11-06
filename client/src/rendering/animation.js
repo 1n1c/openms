@@ -394,12 +394,9 @@ export class EntityAnimation {
 
   /** Called from setAction. Schedules afterimage particles for attack actions. */
   tryPlayAfterimage() {
-    // Clear any pending spawns from previous action.
     this._pendingAfterimageSpawns = null;
 
-    // Gate: only character animations have combat data.
     if (this.kind !== "character") return;
-    // Gate: action must be a known attack family.
     const action = this.action;
     const ATTACK_PREFIXES = ["swing", "stab", "shoot", "throw", "hit", "attack", "proneStab"];
     if (!ATTACK_PREFIXES.some((p) => action.startsWith(p))) return;
@@ -410,50 +407,43 @@ export class EntityAnimation {
     const framesByFacing = attack?.afterimage;
     if (!framesByFacing) return;
 
-    // Afterimage data is authored facing-right (facing=1). Parent actor.container.scale.x
-    // auto-mirrors for facing-left, so we always consume facing=1 and never manually flip.
+    // Consume facing=1 (authored right); actor.container.scale.x auto-mirrors left-facing.
     const aiFrames = framesByFacing[1] ?? framesByFacing[0];
     if (!aiFrames?.length) return;
 
-    // Sort by spawnFrame ascending so we spawn in order.
+    // Sort by spawnFrame ascending (0 → 1 → 2 → ... → 6). This entire
+    // sequence becomes ONE particle that plays frames in order with each
+    // frame's own delay+a1 alpha-decay — exactly matching MapleStory's
+    // CharacterAfterimage.cs (Frame += 1 loop, each node has delay/a1).
     const sorted = [...aiFrames].sort((a, b) => (a.spawnFrame ?? 0) - (b.spawnFrame ?? 0));
-    this._pendingAfterimageSpawns = sorted;
+    // Use the first spawnFrame as the trigger — sequence playback starts when
+    // the attack animation reaches this frame (weapon already swung out).
+    const firstSpawn = sorted[0]?.spawnFrame ?? 0;
+    this._pendingAfterimageSpawns = [{ spawnFrame: firstSpawn, sequence: sorted }];
   }
 
-  /** Called every advance()/seek(). Spawns afterimage particles whose spawnFrame <= current frame,
-   *  drives all live particles, cleans up completed ones. */
+  /** Called every advance()/seek(). Spawns the one sequence particle at frame 0,
+   *  drives playback (frame-switch per delay + in-frame alpha decay), cleans up when done. */
   advanceAfterimages(ms) {
-    // 1) Deferred spawn check — run each frame until queue consumed.
     const pending = this._pendingAfterimageSpawns;
     if (pending && pending.length > 0) {
-      const fxMode = !!this._afterimageFxLayer;
-      const isMirrored = this.container.scale.x < 0;
-      while (pending.length > 0 && this.frame >= pending[0].spawnFrame) {
-        const frameData = pending.shift();
+      // Spawn the sequence particle when current frame >= spawnFrame (almost always 0).
+      if (this.frame >= pending[0].spawnFrame) {
+        const sequence = pending[0].sequence;
         const layer = this._afterimageFxLayer ?? this.container;
-        // In fx mode, afterimage is detached from actor.container so it won't inherit scale.x mirror.
-        // Pre-flip x coords manually when mirrored.
-        let adjustedFrame = frameData;
-        if (fxMode && isMirrored) {
-          adjustedFrame = {
-            ...frameData,
-            parts: frameData.parts.map((p) => ({ ...p, x: -p.x })),
-          };
-        }
-        const anchor = fxMode ? { x: this.container.x, y: this.container.y } : { x: 0, y: 0 };
-        const effect = new AfterimageEffect(layer, adjustedFrame, this.textures, {
+        const anchor = this._afterimageFxLayer
+          ? { x: this.container.x, y: this.container.y }
+          : { x: 0, y: 0 };
+        const effect = new AfterimageEffect(layer, sequence, this.textures, {
           anchorX: anchor.x,
           anchorY: anchor.y,
-          flip: false,
           z: 1000,
         });
-        // IMPORTANT: Don't sync position every frame — afterimage stays at spawn position.
         this.afterimageEffects.push(effect);
+        this._pendingAfterimageSpawns = null;
       }
-      if (pending.length === 0) this._pendingAfterimageSpawns = null;
     }
 
-    // 2) Drive all live particles — just advance time, don't move.
     if (this.afterimageEffects.length === 0) return;
     const alive = [];
     for (const effect of this.afterimageEffects) {
