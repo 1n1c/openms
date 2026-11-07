@@ -16,8 +16,13 @@ import { eventRecord } from "./reactor-data.js";
 import { provenance, rawValue } from "./preflight-inputs.js";
 
 /** Decode every consumed canvas once; retain only the actual pixel identity, never an atlas descriptor. */
-function canvas(state, node) {
-  if (state.decoded.has(node)) return state.decoded.get(node);
+function canvas(state, node, options) {
+  const boostAlpha = !!options?.boostAlpha;
+  if (!state.decoded.has(node)) state.decoded.set(node, new Map());
+  const variants = state.decoded.get(node);
+  const variantKey = boostAlpha ? "boost" : "normal";
+  if (variants.has(variantKey)) return variants.get(variantKey);
+
   const pixels = state.findings.check(
     node,
     "canvas",
@@ -27,18 +32,18 @@ function canvas(state, node) {
       format: node.format,
       scale: node.scale,
     },
-    () => decodeCanvas(node),
+    () => decodeCanvas(node, options),
   );
   state.report.coverage.canvases++;
   if (!pixels) {
-    state.decoded.set(node, null);
+    variants.set(variantKey, null);
     return null;
   }
   const hash = createHash("sha256")
     .update(`${pixels.width}x${pixels.height}:`)
     .update(pixels.rgba)
     .digest("hex");
-  state.decoded.set(node, hash);
+  variants.set(variantKey, hash);
   return hash;
 }
 
@@ -288,7 +293,7 @@ export function originalValidators(report, findings) {
   return {
     tree: (root, options) => tree(state, root, options),
     effect: (root) => tree(state, root, { effect: true }),
-    canvas: (node) => canvas(state, node),
+    canvas: (node, options) => canvas(state, node, options),
     sound: (node) => sound(state, node),
     television: (node) => television(state, node),
     reactor: (root) => reactor(state, root),

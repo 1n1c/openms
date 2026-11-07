@@ -58,9 +58,12 @@ export class AfterimageEffect {
         this.container.addChild(sprite);
         frameSprites.push(sprite);
       }
+      // Duration multiplier: original afterimage fades too fast at low alpha.
+      // Stretch every authored frame delay so the full visual spans ~13 @60fps.
+      const DURATION_SCALE = 2.5;
       this.spriteFrames.push({
         sprites: frameSprites,
-        frameDelay: entry.delay ?? 120,
+        frameDelay: (entry.delay ?? 120) * DURATION_SCALE,
         startOpacity: entry.parts[0]?.opacity ?? 1,
         alphaEnd: entry.alphaEnd ?? 0,
       });

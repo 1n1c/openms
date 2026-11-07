@@ -101,7 +101,7 @@ progress(
 // This conversion process owns these caches; no runtime shares mutable data.
 const archives = new Map(),
   images = new Map(),
-  canvasIds = new WeakMap();
+  canvasIds = new WeakMap(); // node → Map<variantKey, hash>
 const inputImages = Object.create(null);
 const sourceHashes = Object.create(null);
 const textures = Object.create(null),
@@ -200,15 +200,21 @@ function nodePath(node) {
   if (node.parent) throw new Error("Canvas ancestry exceeds 256 nodes");
   return `${node.source}/${parts.join("/")}`;
 }
-/** @param {import('../src/assets/image.js').WzNode} node */ async function texture(
+/** @param {import('../src/assets/image.js').WzNode} node @param {{boostAlpha?: boolean}} [options] */
+async function texture(
   node,
+  options,
 ) {
   node = resolveNode(node);
-  if (canvasIds.has(node)) return canvasIds.get(node);
+  const boostAlpha = !!options?.boostAlpha;
+  const variantKey = boostAlpha ? "boost" : "normal";
+  if (!canvasIds.has(node)) canvasIds.set(node, new Map());
+  const variants = canvasIds.get(node);
+  if (variants.has(variantKey)) return variants.get(variantKey);
   if (decodedCanvases % CANVAS_PROGRESS_INTERVAL === 0) {
     progress(`Decoding canvas ${nodePath(node)} (${decodedCanvases} decoded)`);
   }
-  const decoded = decodeCanvas(node);
+  const decoded = decodeCanvas(node, options);
   const id = createHash("sha256")
     .update(`${decoded.width}x${decoded.height}:`)
     .update(decoded.rgba)
@@ -227,15 +233,15 @@ function nodePath(node) {
     const key = `${decoded.format}/${decoded.scale}`;
     formats[key] = (formats[key] ?? 0) + 1;
   }
-  canvasIds.set(node, id);
+  variants.set(variantKey, id);
   decodedCanvases++;
   return id;
 }
-/** @param {import('../src/assets/image.js').WzNode} node @param {number} [x] @param {number} [y] @param {number} [z] */
-async function part(node, x = 0, y = 0, z = 0) {
+/** @param {import('../src/assets/image.js').WzNode} node @param {number} [x] @param {number} [y] @param {number} [z] @param {{boostAlpha?: boolean}} [options] */
+async function part(node, x = 0, y = 0, z = 0, options) {
   node = resolveNode(node);
   const origin = value(node, "origin", { x: 0, y: 0 });
-  return { texture: await texture(node), x: x - origin.x, y: y - origin.y, z };
+  return { texture: await texture(node, options), x: x - origin.x, y: y - origin.y, z };
 }
 /** @param {import('../src/assets/image.js').WzNode} node */
 async function frames(node) {

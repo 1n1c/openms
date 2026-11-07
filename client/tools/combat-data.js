@@ -87,7 +87,7 @@ async function extractAfterimageFrames(context, actionNode) {
       if (frames.length >= MAX_AFTERIMAGE_FRAMES) {
         throw new Error("Afterimage frame bound exceeded");
       }
-      const part = await context.part(canvasNode);
+      const part = await context.part(canvasNode, 0, 0, 0, { boostAlpha: true });
       const delayRaw = value(canvasNode, "delay", null);
       const delay = delayRaw === null ? 120 : Number(delayRaw);
       const a1Raw = value(canvasNode, "a1", -1);

@@ -27,10 +27,10 @@ function createState(options, report) {
   );
   const findings = preflightFindings(report);
   const validators = originalValidators(report, findings);
-  context.part = async (original, x = 0, y = 0, z = 0) => {
+  context.part = async (original, x = 0, y = 0, z = 0, options) => {
     const node = resolveNode(original),
       origin = value(node, "origin", { x: 0, y: 0 });
-    const texture = validators.canvas(node);
+    const texture = validators.canvas(node, options);
     if (texture === null) {
       throw new Error(`Canvas validation failed at ${nodePath(node)}`);
     }

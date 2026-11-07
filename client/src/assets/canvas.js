@@ -240,12 +240,26 @@ function decodeDxt(raw, output) {
  * @param {import('./image.js').WzNode} canvas
  * @returns {{width:number,height:number,rgba:Buffer,format:number,scale:number}}
  */
-export function decodeCanvas(canvas) {
+/** @param {object} canvas  @param {{ boostAlpha?: boolean }} [options] */
+export function decodeCanvas(canvas, options) {
   const output = canvasLayout(canvas);
   const raw = inflatePixels(canvas.data, output.expected);
   output.rgba = Buffer.alloc(output.width * output.height * 4);
   if (output.format === 1026) decodeDxt(raw, output);
   else decodePacked(raw, output);
+
+  // Afterimage Canvas pixels have low-alpha semi-transparent areas that define
+  // the silhouette — original MapleStory draws them with a full opacity pass
+  // and uses only Canvas a0/a1 for time-based decay. When boostAlpha is true,
+  // every pixel with alpha > 0 is set to alpha = 255, preserving the shape
+  // but making every drawn pixel fully opaque.
+  if (options?.boostAlpha) {
+    const rgba = output.rgba;
+    for (let i = 3; i < rgba.length; i += 4) {
+      if (rgba[i] > 0) rgba[i] = 255;
+    }
+  }
+
   const { width, height, rgba, format, scale } = output;
   return { width, height, rgba, format, scale };
 }
