@@ -1,0 +1,2377 @@
+{
+  "30": {
+    "name": "单手剑",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -74,
+          "top": -11,
+          "right": -15,
+          "bottom": 1,
+          "width": 59,
+          "height": 12
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -84,
+          "top": -30,
+          "right": -20,
+          "bottom": -15,
+          "width": 64,
+          "height": 15
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -83,
+          "top": -30,
+          "right": -12,
+          "bottom": -16,
+          "width": 71,
+          "height": 14
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -110,
+          "top": -32,
+          "right": -40,
+          "bottom": -11,
+          "width": 70,
+          "height": 21
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -88,
+          "top": -62,
+          "right": -18,
+          "bottom": -6,
+          "width": 70,
+          "height": 56
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -73,
+          "top": -50,
+          "right": 5,
+          "bottom": 17,
+          "width": 78,
+          "height": 67
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -102,
+          "top": -50,
+          "right": -22,
+          "bottom": -10,
+          "width": 80,
+          "height": 40
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -123,
+          "top": -48,
+          "right": 13,
+          "bottom": -1,
+          "width": 136,
+          "height": 47
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "31": {
+    "name": "双手剑",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -74,
+          "top": -11,
+          "right": -15,
+          "bottom": 1,
+          "width": 59,
+          "height": 12
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -84,
+          "top": -30,
+          "right": -20,
+          "bottom": -15,
+          "width": 64,
+          "height": 15
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -83,
+          "top": -30,
+          "right": -12,
+          "bottom": -16,
+          "width": 71,
+          "height": 14
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -110,
+          "top": -32,
+          "right": -40,
+          "bottom": -11,
+          "width": 70,
+          "height": 21
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingO1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -88,
+          "top": -62,
+          "right": -18,
+          "bottom": -6,
+          "width": 70,
+          "height": 56
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -73,
+          "top": -50,
+          "right": 5,
+          "bottom": 17,
+          "width": 78,
+          "height": 67
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingO3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -102,
+          "top": -50,
+          "right": -22,
+          "bottom": -10,
+          "width": 80,
+          "height": 40
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -123,
+          "top": -48,
+          "right": 13,
+          "bottom": -1,
+          "width": 136,
+          "height": 47
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "32": {
+    "name": "单手斧",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -72,
+          "top": -14,
+          "right": -9,
+          "bottom": 5,
+          "width": 63,
+          "height": 19
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -82,
+          "top": -30,
+          "right": -17,
+          "bottom": -14,
+          "width": 65,
+          "height": 16
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -82,
+          "top": -30,
+          "right": -14,
+          "bottom": -12,
+          "width": 68,
+          "height": 18
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -108,
+          "top": -32,
+          "right": -36,
+          "bottom": -10,
+          "width": 72,
+          "height": 22
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -77,
+          "top": -61,
+          "right": 0,
+          "bottom": -9,
+          "width": 77,
+          "height": 52
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -69,
+          "top": -55,
+          "right": 12,
+          "bottom": 11,
+          "width": 81,
+          "height": 66
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -94,
+          "top": -50,
+          "right": -20,
+          "bottom": -14,
+          "width": 74,
+          "height": 36
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -118,
+          "top": -40,
+          "right": -3,
+          "bottom": 1,
+          "width": 115,
+          "height": 41
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "33": {
+    "name": "双手斧",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -74,
+          "top": -11,
+          "right": -15,
+          "bottom": 1,
+          "width": 59,
+          "height": 12
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -84,
+          "top": -30,
+          "right": -20,
+          "bottom": -15,
+          "width": 64,
+          "height": 15
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -83,
+          "top": -30,
+          "right": -12,
+          "bottom": -16,
+          "width": 71,
+          "height": 14
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -110,
+          "top": -32,
+          "right": -40,
+          "bottom": -11,
+          "width": 70,
+          "height": 21
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "swingO1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -88,
+          "top": -62,
+          "right": -18,
+          "bottom": -6,
+          "width": 70,
+          "height": 56
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -73,
+          "top": -50,
+          "right": 5,
+          "bottom": 17,
+          "width": 78,
+          "height": 67
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "swingO3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -102,
+          "top": -50,
+          "right": -22,
+          "bottom": -10,
+          "width": 80,
+          "height": 40
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -123,
+          "top": -48,
+          "right": 13,
+          "bottom": -1,
+          "width": 136,
+          "height": 47
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ]
+      }
+    }
+  },
+  "37": {
+    "name": "拳刃",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -72,
+          "top": -14,
+          "right": -9,
+          "bottom": 5,
+          "width": 63,
+          "height": 19
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {},
+        "rect": {
+          "left": -82,
+          "top": -30,
+          "right": -17,
+          "bottom": -14,
+          "width": 65,
+          "height": 16
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO2": {
+        "timing": {},
+        "rect": {
+          "left": -82,
+          "top": -30,
+          "right": -14,
+          "bottom": -12,
+          "width": 68,
+          "height": 18
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -108,
+          "top": -32,
+          "right": -36,
+          "bottom": -10,
+          "width": 72,
+          "height": 22
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO1": {
+        "timing": {},
+        "rect": {
+          "left": -77,
+          "top": -61,
+          "right": 0,
+          "bottom": -9,
+          "width": 77,
+          "height": 52
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -69,
+          "top": -55,
+          "right": 12,
+          "bottom": 11,
+          "width": 81,
+          "height": 66
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO3": {
+        "timing": {},
+        "rect": {
+          "left": -94,
+          "top": -50,
+          "right": -20,
+          "bottom": -14,
+          "width": 74,
+          "height": 36
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -118,
+          "top": -40,
+          "right": -3,
+          "bottom": 1,
+          "width": 115,
+          "height": 41
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "38": {
+    "name": "短杖",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -72,
+          "top": -14,
+          "right": -9,
+          "bottom": 5,
+          "width": 63,
+          "height": 19
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabO1": {
+        "timing": {},
+        "rect": {
+          "left": -82,
+          "top": -30,
+          "right": -17,
+          "bottom": -14,
+          "width": 65,
+          "height": 16
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabO2": {
+        "timing": {},
+        "rect": {
+          "left": -82,
+          "top": -30,
+          "right": -14,
+          "bottom": -12,
+          "width": 68,
+          "height": 18
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -108,
+          "top": -32,
+          "right": -36,
+          "bottom": -10,
+          "width": 72,
+          "height": 22
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingO1": {
+        "timing": {},
+        "rect": {
+          "left": -77,
+          "top": -61,
+          "right": 0,
+          "bottom": -9,
+          "width": 77,
+          "height": 52
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -69,
+          "top": -55,
+          "right": 12,
+          "bottom": 11,
+          "width": 81,
+          "height": 66
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingO3": {
+        "timing": {},
+        "rect": {
+          "left": -94,
+          "top": -50,
+          "right": -20,
+          "bottom": -14,
+          "width": 74,
+          "height": 36
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -118,
+          "top": -40,
+          "right": -3,
+          "bottom": 1,
+          "width": 115,
+          "height": 41
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    }
+  },
+  "39": {
+    "name": "长杖",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -56,
+          "top": -12,
+          "right": -12,
+          "bottom": 0,
+          "width": 44,
+          "height": 12
+        },
+        "attackSpeeds": [
+          3
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -64,
+          "top": -33,
+          "right": -27,
+          "bottom": -18,
+          "width": 37,
+          "height": 15
+        },
+        "attackSpeeds": [
+          3
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -60,
+          "top": -31,
+          "right": -27,
+          "bottom": -15,
+          "width": 33,
+          "height": 16
+        },
+        "attackSpeeds": [
+          3
+        ]
+      }
+    }
+  },
+  "40": {
+    "name": "单手钝器",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -92,
+          "top": -11,
+          "right": -24,
+          "bottom": 2,
+          "width": 68,
+          "height": 13
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "shoot1": {
+        "timing": {},
+        "rect": null,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -98,
+          "top": -30,
+          "right": -30,
+          "bottom": -16,
+          "width": 68,
+          "height": 14
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -98,
+          "top": -30,
+          "right": -36,
+          "bottom": -16,
+          "width": 62,
+          "height": 14
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -123,
+          "top": -32,
+          "right": -50,
+          "bottom": -11,
+          "width": 73,
+          "height": 21
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingT1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -86,
+          "top": -81,
+          "right": -47,
+          "bottom": 5,
+          "width": 39,
+          "height": 86
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingT2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -75,
+          "top": -75,
+          "right": -35,
+          "bottom": 5,
+          "width": 40,
+          "height": 80
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingT3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -78,
+          "top": -73,
+          "right": -30,
+          "bottom": 14,
+          "width": 48,
+          "height": 87
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingTF": {
+        "timing": {},
+        "rect": {
+          "left": -92,
+          "top": -83,
+          "right": -55,
+          "bottom": 15,
+          "width": 37,
+          "height": 98
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    }
+  },
+  "41": {
+    "name": "双手钝器",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -86,
+          "top": -18,
+          "right": 0,
+          "bottom": 10,
+          "width": 86,
+          "height": 28
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -90,
+          "top": -36,
+          "right": -9,
+          "bottom": -6,
+          "width": 81,
+          "height": 30
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -90,
+          "top": -36,
+          "right": -9,
+          "bottom": -6,
+          "width": 81,
+          "height": 30
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -116,
+          "top": -35,
+          "right": -26,
+          "bottom": -4,
+          "width": 90,
+          "height": 31
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingT1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -99,
+          "top": -90,
+          "right": -51,
+          "bottom": 18,
+          "width": 48,
+          "height": 108
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingT2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -84,
+          "top": -79,
+          "right": -35,
+          "bottom": 14,
+          "width": 49,
+          "height": 93
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingT3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -85,
+          "top": -81,
+          "right": 0,
+          "bottom": 26,
+          "width": 85,
+          "height": 107
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingTF": {
+        "timing": {},
+        "rect": {
+          "left": -114,
+          "top": -102,
+          "right": -56,
+          "bottom": 17,
+          "width": 58,
+          "height": 119
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      }
+    }
+  },
+  "42": {
+    "name": "巨剑",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -86,
+          "top": -18,
+          "right": 0,
+          "bottom": 10,
+          "width": 86,
+          "height": 28
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -90,
+          "top": -36,
+          "right": -9,
+          "bottom": -6,
+          "width": 81,
+          "height": 30
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -90,
+          "top": -36,
+          "right": -9,
+          "bottom": -6,
+          "width": 81,
+          "height": 30
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -116,
+          "top": -35,
+          "right": -26,
+          "bottom": -4,
+          "width": 90,
+          "height": 31
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingT1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -99,
+          "top": -90,
+          "right": -51,
+          "bottom": 18,
+          "width": 48,
+          "height": 108
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingT2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -84,
+          "top": -79,
+          "right": -35,
+          "bottom": 14,
+          "width": 49,
+          "height": 93
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingT3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -85,
+          "top": -81,
+          "right": 0,
+          "bottom": 26,
+          "width": 85,
+          "height": 107
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      },
+      "swingTF": {
+        "timing": {},
+        "rect": {
+          "left": -114,
+          "top": -102,
+          "right": -56,
+          "bottom": 17,
+          "width": 58,
+          "height": 119
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ]
+      }
+    }
+  },
+  "43": {
+    "name": "长枪",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -113,
+          "top": -17,
+          "right": -23,
+          "bottom": 11,
+          "width": 90,
+          "height": 28
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabT1": {
+        "timing": {
+          "duration": 750,
+          "release": 400
+        },
+        "rect": {
+          "left": -130,
+          "top": -33,
+          "right": -36,
+          "bottom": -4,
+          "width": 94,
+          "height": 29
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabT2": {
+        "timing": {
+          "duration": 750,
+          "release": 400
+        },
+        "rect": {
+          "left": -111,
+          "top": -46,
+          "right": -24,
+          "bottom": 0,
+          "width": 87,
+          "height": 46
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "stabTF": {
+        "timing": {},
+        "rect": {
+          "left": -124,
+          "top": -34,
+          "right": -10,
+          "bottom": -1,
+          "width": 114,
+          "height": 33
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingP1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -133,
+          "top": -120,
+          "right": -51,
+          "bottom": 24,
+          "width": 82,
+          "height": 144
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingP2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -116,
+          "top": -122,
+          "right": -47,
+          "bottom": 20,
+          "width": 69,
+          "height": 142
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingPF": {
+        "timing": {},
+        "rect": {
+          "left": -144,
+          "top": -123,
+          "right": -67,
+          "bottom": 23,
+          "width": 77,
+          "height": 146
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      },
+      "swingT2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -120,
+          "top": -125,
+          "right": -52,
+          "bottom": 20,
+          "width": 68,
+          "height": 145
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ]
+      }
+    }
+  },
+  "44": {
+    "name": "长矛",
+    "actions": {
+      "doubleSwing": {
+        "timing": {},
+        "rect": {
+          "left": -133,
+          "top": -120,
+          "right": -51,
+          "bottom": 24,
+          "width": 82,
+          "height": 144
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -113,
+          "top": -17,
+          "right": -23,
+          "bottom": 11,
+          "width": 90,
+          "height": 28
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "stabT1": {
+        "timing": {
+          "duration": 750,
+          "release": 400
+        },
+        "rect": {
+          "left": -130,
+          "top": -33,
+          "right": -36,
+          "bottom": -4,
+          "width": 94,
+          "height": 29
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "stabT2": {
+        "timing": {
+          "duration": 750,
+          "release": 400
+        },
+        "rect": {
+          "left": -111,
+          "top": -46,
+          "right": -24,
+          "bottom": 0,
+          "width": 87,
+          "height": 46
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "stabTF": {
+        "timing": {},
+        "rect": {
+          "left": -124,
+          "top": -34,
+          "right": -10,
+          "bottom": -1,
+          "width": 114,
+          "height": 33
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingP1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -133,
+          "top": -120,
+          "right": -51,
+          "bottom": 24,
+          "width": 82,
+          "height": 144
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingP1PoleArm": {
+        "timing": {
+          "duration": 540,
+          "release": 180
+        },
+        "rect": {
+          "left": -150,
+          "top": -125,
+          "right": 0,
+          "bottom": 0,
+          "width": 150,
+          "height": 125
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingP2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -116,
+          "top": -122,
+          "right": -47,
+          "bottom": 20,
+          "width": 69,
+          "height": 142
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingP2PoleArm": {
+        "timing": {
+          "duration": 540,
+          "release": 180
+        },
+        "rect": {
+          "left": -150,
+          "top": -125,
+          "right": 0,
+          "bottom": 0,
+          "width": 150,
+          "height": 125
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingPF": {
+        "timing": {},
+        "rect": {
+          "left": -144,
+          "top": -123,
+          "right": -67,
+          "bottom": 23,
+          "width": 77,
+          "height": 146
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingT2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -120,
+          "top": -125,
+          "right": -52,
+          "bottom": 20,
+          "width": 68,
+          "height": 145
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "swingT2PoleArm": {
+        "timing": {
+          "duration": 540,
+          "release": 180
+        },
+        "rect": {
+          "left": -150,
+          "top": -125,
+          "right": 0,
+          "bottom": 0,
+          "width": 150,
+          "height": 125
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      },
+      "tripleSwing": {
+        "timing": {},
+        "rect": {
+          "left": -144,
+          "top": -123,
+          "right": -67,
+          "bottom": 23,
+          "width": 77,
+          "height": 146
+        },
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    }
+  },
+  "45": {
+    "name": "弓",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -92,
+          "top": -11,
+          "right": -24,
+          "bottom": 2,
+          "width": 68,
+          "height": 13
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "shoot1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": null,
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {},
+        "rect": {
+          "left": -98,
+          "top": -30,
+          "right": -30,
+          "bottom": -16,
+          "width": 68,
+          "height": 14
+        },
+        "attackSpeeds": [
+          5
+        ]
+      },
+      "stabO2": {
+        "timing": {},
+        "rect": {
+          "left": -98,
+          "top": -30,
+          "right": -36,
+          "bottom": -16,
+          "width": 62,
+          "height": 14
+        },
+        "attackSpeeds": [
+          5
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -123,
+          "top": -32,
+          "right": -50,
+          "bottom": -11,
+          "width": 73,
+          "height": 21
+        },
+        "attackSpeeds": [
+          5
+        ]
+      },
+      "swingT1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -30,
+          "top": -81,
+          "right": 0,
+          "bottom": 5,
+          "width": 30,
+          "height": 86
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingT2": {
+        "timing": {},
+        "rect": {
+          "left": -75,
+          "top": -75,
+          "right": -35,
+          "bottom": 5,
+          "width": 40,
+          "height": 80
+        },
+        "attackSpeeds": [
+          5
+        ]
+      },
+      "swingT3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -30,
+          "top": -73,
+          "right": 0,
+          "bottom": 14,
+          "width": 30,
+          "height": 87
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingTF": {
+        "timing": {},
+        "rect": {
+          "left": -92,
+          "top": -83,
+          "right": -55,
+          "bottom": 15,
+          "width": 37,
+          "height": 98
+        },
+        "attackSpeeds": [
+          5
+        ]
+      }
+    }
+  },
+  "46": {
+    "name": "弩",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -85,
+          "top": -12,
+          "right": -20,
+          "bottom": 3,
+          "width": 65,
+          "height": 15
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "shoot2": {
+        "timing": {
+          "duration": 820,
+          "release": 670
+        },
+        "rect": null,
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabT1": {
+        "timing": {
+          "duration": 750,
+          "release": 400
+        },
+        "rect": {
+          "left": -30,
+          "top": -26,
+          "right": 0,
+          "bottom": -10,
+          "width": 30,
+          "height": 16
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "swingT1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -30,
+          "top": -81,
+          "right": 0,
+          "bottom": 5,
+          "width": 30,
+          "height": 86
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "47": {
+    "name": "拳套",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -74,
+          "top": -11,
+          "right": -15,
+          "bottom": 1,
+          "width": 59,
+          "height": 12
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -84,
+          "top": -30,
+          "right": -20,
+          "bottom": -15,
+          "width": 64,
+          "height": 15
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -83,
+          "top": -30,
+          "right": -12,
+          "bottom": -16,
+          "width": 71,
+          "height": 14
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "stabOF": {
+        "timing": {},
+        "rect": {
+          "left": -110,
+          "top": -32,
+          "right": -40,
+          "bottom": -11,
+          "width": 70,
+          "height": 21
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -88,
+          "top": -62,
+          "right": -18,
+          "bottom": -6,
+          "width": 70,
+          "height": 56
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -73,
+          "top": -50,
+          "right": 5,
+          "bottom": 17,
+          "width": 78,
+          "height": 67
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingO3": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -102,
+          "top": -50,
+          "right": -22,
+          "bottom": -10,
+          "width": 80,
+          "height": 40
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "swingOF": {
+        "timing": {},
+        "rect": {
+          "left": -123,
+          "top": -48,
+          "right": 13,
+          "bottom": -1,
+          "width": 136,
+          "height": 47
+        },
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "48": {
+    "name": "指虎",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -56,
+          "top": -12,
+          "right": -12,
+          "bottom": 0,
+          "width": 44,
+          "height": 12
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabO1": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -64,
+          "top": -33,
+          "right": -27,
+          "bottom": -18,
+          "width": 37,
+          "height": 15
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      },
+      "stabO2": {
+        "timing": {
+          "duration": 800,
+          "release": 350
+        },
+        "rect": {
+          "left": -60,
+          "top": -31,
+          "right": -27,
+          "bottom": -15,
+          "width": 33,
+          "height": 16
+        },
+        "attackSpeeds": [
+          5,
+          6
+        ]
+      }
+    }
+  },
+  "49": {
+    "name": "火铳",
+    "actions": {
+      "proneStab": {
+        "timing": {
+          "duration": 700,
+          "release": 300
+        },
+        "rect": {
+          "left": -80,
+          "top": -11,
+          "right": -20,
+          "bottom": 2,
+          "width": 60,
+          "height": 13
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "shot": {
+        "timing": {
+          "duration": 780,
+          "release": 240
+        },
+        "rect": null,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingT1": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -63,
+          "top": -54,
+          "right": -31,
+          "bottom": -5,
+          "width": 32,
+          "height": 49
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingT2": {
+        "timing": {
+          "duration": 800,
+          "release": 450
+        },
+        "rect": {
+          "left": -61,
+          "top": -36,
+          "right": -15,
+          "bottom": -5,
+          "width": 46,
+          "height": 31
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      },
+      "swingT3": {
+        "timing": {},
+        "rect": {
+          "left": -43,
+          "top": -55,
+          "right": -13,
+          "bottom": -9,
+          "width": 30,
+          "height": 46
+        },
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ]
+      }
+    }
+  }
+}

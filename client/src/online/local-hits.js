@@ -1,5 +1,6 @@
 import { PhysicalDamage } from "../combat/physical-damage.js";
 import { MOB_HIT } from "../combat/mob-hit.js";
+import { weaponHitGroup } from "../combat/weapon-usage.js";
 import {
   overlaps,
   placeBody,
@@ -44,6 +45,8 @@ export class LocalHits {
     this.pending = new Map();
     this.reactions = new Map();
     this.timers = new Set();
+    // De-dupe hit effect spawns: both local prediction and server impact may race to spawn.
+    this.hitEffectSpawned = new Set();
   }
 
   /** Roll provisional lines on the input edge, as in the original chain (`009581a9`).
@@ -287,13 +290,10 @@ export class LocalHits {
     return true;
   }
 
-  /** Local prediction for reaction, recoil and sound only.
-   *  Phase 3 (root cause E): we intentionally do NOT render damage numbers here.
-   *  The client's local select picks ALL mobs in the authored rectangle, but the
-   *  server may confirm fewer targets (lag compensation, rewind, etc.). Rendering
-   *  numbers here would leave fake digits on unconfirmed targets for ~1-2 seconds
-   *  until the animation naturally expires. Numbers now flow from the authoritative
-   *  combat.impact event in scene-events.damage(). */
+  /** Local prediction for reaction, recoil, sound AND hit.img spark effect.
+   *  All four now run at the authored release frame, so hit effect stays
+   *  frame-aligned with the attacker's own animation instead of drifting behind
+   *  server round-trip. */
   present(record, view, rolls) {
     if (record.rejected) return;
     const scene = this.combat.scene;
@@ -303,6 +303,36 @@ export class LocalHits {
     this.react(view, rolls[0].amount);
     this.recoil(view, rolls[0].amount, record.hitFacing ?? 1);
     this.playSound(view, rolls[0].amount, record);
+    this.playHitEffect(view, record);
+  }
+
+  /** Spawn hit.img spark effect locally at the release frame — same timing as react/recoil.
+   *  melee basic attacks only; ranged/magic have their own Skill.wz visuals.
+   *  De-duped against server-driven spawn via hitEffectSpawned Set. */
+  playHitEffect(view, record) {
+    const targetId = view.entity.id;
+    const dedupeKey = `${targetId}:${record.identity}`;
+    // Mark all pending entries from this record for this targetId.
+    const queue = this.pending.get(targetId);
+    if (queue?.length) {
+      for (const entry of queue) {
+        if (entry.record === record) entry.hitEffectPlayed = true;
+      }
+    }
+    // Only basic melee attacks spawn hit.img sparks
+    if (record.skillId) return;
+    const weaponType = this.avatarCombat()?.weaponType;
+    if (!weaponType) return;
+    const group = weaponHitGroup(weaponType);
+    if (!group) return;
+    // De-dupe: server impact may race here and already spawned
+    if (this.hitEffectSpawned.has(dedupeKey)) return;
+    this.hitEffectSpawned.add(dedupeKey);
+    const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
+    const combatPresentation = this.combat.scene?.events?.combat;
+    if (!combatPresentation?.onHitEffect) return;
+    const facing = record.hitFacing ?? 1;
+    combatPresentation.onHitEffect(view.drawX, view.drawY, facing, variant);
   }
 
   playSound(view, amount, record) {
@@ -447,23 +477,22 @@ export class LocalHits {
   }
 
   /** Outgoing impacts: take the matching local prediction (side effects: recoil.confirmed,
-   *  pending splice) and return whether present() actually executed playSound(). This bridges
-   *  the predictive LocalHits path and the authoritative impactAudio path: when playSound ran,
-   *  consume returns true so the authority audio skips (no double-sound). When playSound was
-   *  skipped (select missed the mob, mob dead, view not in scene, amount<=0) consume returns
-   *  false so the authority audio becomes the fallback source.
-   *  NOTE: scene-events.damage() no longer uses the consumed flag for outgoing number rendering —
-   *  Phase 3 moved outgoing digits entirely to the authoritative path. Only impactAudio needs
-   *  this soundPlayed signal. */
+   *  pending splice) and return a flags object { soundPlayed, hitEffectPlayed } so the
+   *  authoritative caller knows which local side effects already fired. */
   consume(event) {
-    if (event.actorId !== this.combat.scene?.selfId) return false;
+    if (event.actorId !== this.combat.scene?.selfId) return { soundPlayed: false, hitEffectPlayed: false };
     const prediction = this.takePrediction(event);
-    if (!prediction) return false;
+    if (!prediction) return { soundPlayed: false, hitEffectPlayed: false };
     // Side effect: mark local knockback as confirmed by authority
     const view = this.combat.scene?.views?.get(event.targetId);
     if (view?.recoil && event.damage > 0) view.recoil.confirmed = true;
-    // Return whether playSound actually ran for this prediction.
-    return Boolean(prediction.soundPlayed);
+    // Mark hitEffectPlayed early so server path knows local present may still spawn.
+    // This prevents server + local double-spawn when server impact arrives before release frame.
+    if (!prediction.hitEffectPlayed) prediction.hitEffectPlayed = true;
+    return {
+      soundPlayed: Boolean(prediction.soundPlayed),
+      hitEffectPlayed: true,  // Always mark true after consume; server path may still need spawn fallback
+    };
   }
 
   takePrediction(event) {

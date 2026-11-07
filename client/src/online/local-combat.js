@@ -260,10 +260,18 @@ export class LocalCombat {
   /** Audio and scene publication share one decision even when their consumers run apart. */
   consumeImpact(event) {
     if (!this.impacts.has(event)) {
-      this.impacts.set(
-        event,
-        this.hits.consume(event) || this.incoming.consume(event),
-      );
+      const hitsResult = this.hits.consume(event);
+      const incomingResult = this.incoming.consume(event);
+      // Normalize to { soundPlayed, hitEffectPlayed } object
+      let normalized;
+      if (hitsResult && typeof hitsResult === "object") {
+        normalized = hitsResult;  // { soundPlayed, hitEffectPlayed }
+      } else if (hitsResult) {
+        normalized = { soundPlayed: true, hitEffectPlayed: false };  // legacy boolean
+      } else {
+        normalized = { soundPlayed: Boolean(incomingResult), hitEffectPlayed: false };
+      }
+      this.impacts.set(event, normalized);
     }
     return this.impacts.get(event);
   }

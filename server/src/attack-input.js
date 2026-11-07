@@ -13,19 +13,17 @@ export function resetAttackInput(actor) {
 
 /** Zero queue — only one pending attack survives at a time, never more.
  *  Movement admission is fully decoupled: a dropped attack never throws.
- *  If authority is already in an action phase, new presses are dropped
- *  entirely — no server-side event fires, avoiding phantom audio on the
- *  client when local prediction intentionally suppressed it. */
+ *  
+ *  Phase-busy presses are NOT dropped — they are buffered into attackEdges
+ *  (MAX_EDGES=1, so the most recent pending attack overwrites any stale one).
+ *  takeAttackInput() has its own ready gate that only consumes from the
+ *  queue when phase === "idle", so the buffered press fires automatically
+ *  on the very next tick after the current attack completes, exactly like
+ *  original MapleStory's seamless held-key behavior. */
 export function retainAttackInput(actor, sample) {
   const pressed = sample.attack && !actor.receivedAttack;
   actor.receivedAttack = sample.attack;
   if (!pressed) return false;
-  // Authority still running an action — don't queue anything; the client
-  // already suppressed local prediction so the server must match that.
-  if (actor.skillField?.phase && actor.skillField.phase !== "idle") {
-    actor.attackAdmission = "BUSY";
-    return false;
-  }
   const tick = actor.field.tick;
   if (
     sample.targetTick < tick - MAX_AGE_TICKS ||
@@ -36,8 +34,9 @@ export function retainAttackInput(actor, sample) {
   // Expire stale entries first so a legitimate late press can still land.
   expireAttackInput(actor);
   if (actor.attackEdges.length >= MAX_EDGES) {
-    actor.attackAdmission = "BUSY";
-    return false;
+    // Overwrite the oldest pending edge — held-key behavior means the
+    // player is still pressing; the latest edge is always the valid one.
+    actor.attackEdges.shift();
   }
   actor.attackEdges.push({
     inputSeq: sample.inputSeq,

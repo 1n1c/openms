@@ -1,0 +1,1681 @@
+{
+  "30": {
+    "name": "单手剑",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "31": {
+    "name": "双手剑",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "32": {
+    "name": "单手斧",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 568,
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "33": {
+    "name": "双手斧",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {
+          "AS3": 568,
+          "AS4": 612,
+          "AS5": 656
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750
+        }
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750
+        }
+      },
+      "swingO3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750
+        }
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          3,
+          4,
+          5
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "37": {
+    "name": "拳刃",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "stabO1": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "stabO2": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO3": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "38": {
+    "name": "短杖",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700,
+          "AS7": 743,
+          "AS8": 787
+        }
+      },
+      "stabO1": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "stabO2": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "swingO3": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "39": {
+    "name": "长杖",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          3
+        ],
+        "scaled": {
+          "AS3": 568
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3
+        ],
+        "scaled": {
+          "AS3": 650
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3
+        ],
+        "scaled": {
+          "AS3": 650
+        }
+      }
+    }
+  },
+  "40": {
+    "name": "单手钝器",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700,
+          "AS7": 743,
+          "AS8": 787
+        }
+      },
+      "shoot1": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "swingT1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "swingT2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "swingT3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "swingTF": {
+        "attackSpeeds": [
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "41": {
+    "name": "双手钝器",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700,
+          "AS7": 743
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {}
+      },
+      "swingT1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "swingT2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "swingT3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "swingTF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "42": {
+    "name": "巨剑",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700,
+          "AS7": 743
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {}
+      },
+      "swingT1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "swingT2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "swingT3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850
+        }
+      },
+      "swingTF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "43": {
+    "name": "长枪",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700,
+          "AS7": 743,
+          "AS8": 787
+        }
+      },
+      "stabT1": {
+        "originalDuration": 750,
+        "originalRelease": 400,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS5": 703,
+          "AS6": 750,
+          "AS7": 796,
+          "AS8": 843
+        }
+      },
+      "stabT2": {
+        "originalDuration": 750,
+        "originalRelease": 400,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS5": 703,
+          "AS6": 750,
+          "AS7": 796,
+          "AS8": 843
+        }
+      },
+      "stabTF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "swingP1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "swingP2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      },
+      "swingPF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {}
+      },
+      "swingT2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900
+        }
+      }
+    }
+  },
+  "44": {
+    "name": "长矛",
+    "actions": {
+      "doubleSwing": {
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {}
+      },
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700,
+          "AS7": 743,
+          "AS8": 787,
+          "AS9": 831
+        }
+      },
+      "stabT1": {
+        "originalDuration": 750,
+        "originalRelease": 400,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 703,
+          "AS6": 750,
+          "AS7": 796,
+          "AS8": 843,
+          "AS9": 890
+        }
+      },
+      "stabT2": {
+        "originalDuration": 750,
+        "originalRelease": 400,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 703,
+          "AS6": 750,
+          "AS7": 796,
+          "AS8": 843,
+          "AS9": 890
+        }
+      },
+      "stabTF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {}
+      },
+      "swingP1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900,
+          "AS9": 950
+        }
+      },
+      "swingP1PoleArm": {
+        "originalDuration": 540,
+        "originalRelease": 180,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 506,
+          "AS6": 540,
+          "AS7": 573,
+          "AS8": 607,
+          "AS9": 641
+        }
+      },
+      "swingP2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900,
+          "AS9": 950
+        }
+      },
+      "swingP2PoleArm": {
+        "originalDuration": 540,
+        "originalRelease": 180,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 506,
+          "AS6": 540,
+          "AS7": 573,
+          "AS8": 607,
+          "AS9": 641
+        }
+      },
+      "swingPF": {
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {}
+      },
+      "swingT2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800,
+          "AS7": 850,
+          "AS8": 900,
+          "AS9": 950
+        }
+      },
+      "swingT2PoleArm": {
+        "originalDuration": 540,
+        "originalRelease": 180,
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {
+          "AS5": 506,
+          "AS6": 540,
+          "AS7": 573,
+          "AS8": 607,
+          "AS9": 641
+        }
+      },
+      "tripleSwing": {
+        "attackSpeeds": [
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "45": {
+    "name": "弓",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "shoot1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabO1": {
+        "attackSpeeds": [
+          5
+        ],
+        "scaled": {}
+      },
+      "stabO2": {
+        "attackSpeeds": [
+          5
+        ],
+        "scaled": {}
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          5
+        ],
+        "scaled": {}
+      },
+      "swingT1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingT2": {
+        "attackSpeeds": [
+          5
+        ],
+        "scaled": {}
+      },
+      "swingT3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingTF": {
+        "attackSpeeds": [
+          5
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "46": {
+    "name": "弩",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "shoot2": {
+        "originalDuration": 820,
+        "originalRelease": 670,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 768,
+          "AS6": 820
+        }
+      },
+      "stabT1": {
+        "originalDuration": 750,
+        "originalRelease": 400,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 703,
+          "AS6": 750
+        }
+      },
+      "swingT1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      }
+    }
+  },
+  "47": {
+    "name": "拳套",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 568,
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabOF": {
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      },
+      "swingO1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingO3": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS3": 650,
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingOF": {
+        "attackSpeeds": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      }
+    }
+  },
+  "48": {
+    "name": "指虎",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "stabO1": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "stabO2": {
+        "originalDuration": 800,
+        "originalRelease": 350,
+        "attackSpeeds": [
+          5,
+          6
+        ],
+        "scaled": {
+          "AS5": 750,
+          "AS6": 800
+        }
+      }
+    }
+  },
+  "49": {
+    "name": "火铳",
+    "actions": {
+      "proneStab": {
+        "originalDuration": 700,
+        "originalRelease": 300,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 612,
+          "AS5": 656,
+          "AS6": 700
+        }
+      },
+      "shot": {
+        "originalDuration": 780,
+        "originalRelease": 240,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 682,
+          "AS5": 731,
+          "AS6": 780
+        }
+      },
+      "swingT1": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingT2": {
+        "originalDuration": 800,
+        "originalRelease": 450,
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {
+          "AS4": 700,
+          "AS5": 750,
+          "AS6": 800
+        }
+      },
+      "swingT3": {
+        "attackSpeeds": [
+          4,
+          5,
+          6
+        ],
+        "scaled": {}
+      }
+    }
+  }
+}

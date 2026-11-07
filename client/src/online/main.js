@@ -453,7 +453,7 @@ function draw() {
     ui?.draw(elapsed);
     login?.draw(elapsed);
     if (current) current.scene.hitboxPreview = hitboxInspector.context;
-    overlay?.update(current?.scene, debug);
+    overlay?.update(current, debug);
     app.renderer.render(app.stage);
   } catch (error) {
     failedScene(error);
@@ -651,6 +651,7 @@ function initializeInspection() {
   overlay = createDebugOverlay(
     app,
     document.querySelector("#geometry-readout"),
+    catalog,
   );
 }
 

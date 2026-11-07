@@ -1147,7 +1147,7 @@ export class OnlineUI {
     // The `isOutgoing` guard was always wrong — consumeImpact already answers the
     // right question: did the client already render this?
     const consumed = this.localCombat.consumeImpact(event);
-    const skipAuthority = consumed;
+    const skipAuthority = consumed?.soundPlayed ?? false;
     const target = this.entities.find((entry) => entry.id === event.targetId);
     if (target?.kind === "mob" && event.damage > 0) {
       if (skipAuthority) return; // client already played onMobHit locally

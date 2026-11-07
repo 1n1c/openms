@@ -142,19 +142,9 @@ export class SceneEvents {
       outcome: event.damage > 0 ? "hit" : "miss",
     });
     const combat = this.owner.localCombat;
-    // consumeImpact returns true when a local prediction already rendered feedback.
-    // For outgoing (player→mob): Phase 3 moved digit rendering fully to the authority path,
-    // so we ALWAYS render the authoritative number — consumed is irrelevant here.
-    // For incoming (mob→player): LocalIncoming.present() renders its own digits, so consumed=true
-    // means we skip the fallbackPresent (number already drawn locally).
-    const consumed = combat ? combat.consumeImpact(event) : false;
-    // Hard direction guard: ONLY outgoing impacts may render through the onMobHit
-    // path. Incoming impacts (mob→player) must NEVER call onMobHit — that paints
-    // the yellow mob-hit glyph onto the player. Incoming digits are LocalIncoming's
-    // sole responsibility.
+    const consumed = combat ? combat.consumeImpact(event) : { soundPlayed: false, hitEffectPlayed: false };
     const incomingCause = event.cause === "mob-attack" || event.cause === "contact" || event.cause === "fall";
     if (!incomingCause && event.damage > 0) {
-      // Outgoing: ALWAYS render authoritative digit (Phase 3). LocalHits no longer paints numbers.
       const view = this.owner.views.get(event.targetId);
       if (view) {
         this.reserveNumber();
@@ -167,16 +157,11 @@ export class SceneEvents {
           });
         } else {
           this.combat.onMobHit(target, event.damage, event.critical);
-          // Hit.img spark effect for basic melee hits (not skills, not ranged)
-          this.spawnHitEffect(event);
+          // Skip server-driven hit effect when LocalHits already predicted it locally
+          if (!consumed.hitEffectPlayed) this.spawnHitEffect(event);
         }
       }
-    } else if (!consumed && incomingCause && event.targetId === this.owner.selfId) {
-      // Incoming impact with no matching local prediction — likely a client/server
-      // overlap race (mob walking: client tick N just missed overlap, server tick N+1
-      // caught it → HP deducted but no number rendered). Fall back to LocalIncoming's
-      // present path so the user sees the damage they actually took.
-      // amount=0 (MISS) also falls through here — show blue MISS glyph, no hit face.
+    } else if (!consumed.soundPlayed && incomingCause && event.targetId === this.owner.selfId) {
       combat?.incoming?.fallbackPresent(event.damage, event.actorId);
     }
   }
@@ -192,7 +177,6 @@ export class SceneEvents {
     const group = weaponHitGroup(weaponType);
     if (!group) return;
     const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
-    // Hit position from server-authoritative event; facing from actor animation.
     const pos = event.position;
     if (!pos) return;
     const facing = actor?.animation?.container?.scale?.x < 0 ? -1 : 1;

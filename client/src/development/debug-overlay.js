@@ -7,6 +7,10 @@ const VELOCITY_SCALE = 0.2;
 const SHAPE_NAMES = ["body", "attack", "damage"];
 const SHAPE_COLORS = [0x00ffff, 0xffbb00, 0xff55aa];
 
+/** Extra overlay rectangles: mob body + real-time self attack body. */
+const MOB_COLOR = 0x00ff88;  // green for mob bodies
+const MAX_MOB_RECTS = 32;
+
 /** @param {Container} parent @param {number} color */
 function lineSprite(parent, color) {
   const sprite = new Sprite(Texture.WHITE);
@@ -43,6 +47,27 @@ function placeRectangle(edges, shape) {
   edges[3].position.set(shape.right, shape.top);
   edges[3].width = 1;
   edges[3].height = height;
+}
+
+/** Place a rectangle from authored left-facing coords into world space.
+ *  Matches placeBody() from life-geometry-numeric.js which the server uses. */
+function placeAuthoredRectangle(edges, rect, x, y, facing) {
+  if (!rect) {
+    for (let i = 0; i < 4; i++) edges[i].visible = false;
+    return;
+  }
+  const left = rect.left;
+  const right = rect.right;
+  // Flip for facing-right: negate and swap x ends.
+  const worldLeft = x + (facing > 0 ? -right : left);
+  const worldRight = x + (facing > 0 ? -left : right);
+  const worldTop = rect.top + y;
+  const worldBottom = rect.bottom + y;
+  placeRectangle(edges, {
+    active: worldLeft < worldRight && worldTop < worldBottom,
+    left: worldLeft, right: worldRight,
+    top: worldTop, bottom: worldBottom,
+  });
 }
 
 /** @param {object} overlay @param {object} scene */
@@ -105,10 +130,10 @@ function drawBounds(lines, scene) {
 }
 
 /** Formatting occurs only on the throttled inspection sampler. */
-function boundsReadout(scene) {
-  const physical = scene.simulation.bounds;
-  const render = scene.manifest.bounds;
-  const map = scene.manifest.physics.map;
+function boundsReadout(streamScene) {
+  const physical = streamScene.simulation.bounds;
+  const render = streamScene.manifest.bounds;
+  const map = streamScene.manifest.physics.map;
   return [
     `physical clip domain L=${physical.left} R=${physical.right} T=${physical.top} B=${physical.bottom}`,
     `render bounds L=${render.left} R=${render.right} T=${render.top} B=${render.bottom}`,
@@ -118,33 +143,46 @@ function boundsReadout(scene) {
   ].join("\n");
 }
 
-/** @param {object} overlay @param {object} scene */
-function updateReadout(overlay, scene) {
-  const sim = scene.simulation;
+/** @param {object} overlay @param {object} streamScene @param {object} onlineScene */
+function updateReadout(overlay, streamScene, onlineScene) {
+  const sim = streamScene.simulation;
+  const mobCount = overlay._activeMobCount ?? 0;
   overlay.readout.textContent = [
     `state=${sim.state} action=${sim.action} foothold=${sim.footholdId} prev=${sim.foothold?.prevId ?? "none"} next=${sim.foothold?.nextId ?? "none"} ladder=${sim.ladderId}`,
     `position=${sim.x.toFixed(3)},${sim.y.toFixed(3)} velocity=${sim.vx.toFixed(3)},${sim.vy.toFixed(3)} px/s`,
     `contact plane=${sim.contactLayer} group=${sim.contactGroup}; space group=${sim.spaceGroup}`,
-    boundsReadout(scene),
-    "body=cyan attack=amber damage=pink; white cross=feet; green=authored footholds/walls, NOT physical domain",
+    boundsReadout(streamScene),
+    `body=cyan attack=amber damage=pink mob.body=green; white cross=feet`,
+    `active mob rects=${mobCount}/${MAX_MOB_RECTS}; self.views.size=${onlineScene.views?.size ?? 0}`,
     `blocked=${JSON.stringify(sim.blocked)} original attack activation=unverified; geometry unresolved=${overlay.shapes.unknown}`,
   ].join("\n");
 }
 
-/** @param {object} overlay @param {object} scene */
-function updateShapes(overlay, scene) {
+/** Look up the authored attack rectangle from catalog for a given weapon + action. */
+function getAttackRectangle(catalog, weaponType, actionName) {
+  if (!catalog?.ui?.avatar?.entries) return null;
+  for (const entry of Object.values(catalog.ui.avatar.entries)) {
+    if (entry.combat?.weaponType !== weaponType) continue;
+    const action = entry.combat.attacks?.[actionName];
+    if (action?.rectangle) return action.rectangle;
+  }
+  return null;
+}
+
+/** @param {object} overlay @param {object} streamScene @param {object} onlineScene */
+function updateShapes(overlay, streamScene, onlineScene) {
   const context = overlay.context;
-  const sim = scene.simulation;
+  const sim = streamScene.simulation;
   context.action = sim.action;
   context.attacking = sim.diagnostics.unsupportedAttack === true;
-  for (const entity of scene.entities) {
+  for (const entity of streamScene.entities) {
     if (entity.id !== "character") continue;
     context.frame = entity.frame;
     context.elapsedMs = entity.actionTimeMs;
     break;
   }
-  const pose = scene.presentation ?? sim;
-  applyPreview(context, scene.hitboxPreview, pose);
+  const pose = streamScene.presentation ?? sim;
+  applyPreview(context, streamScene.hitboxPreview, pose);
   updateHitboxes(overlay.shapes, pose, context);
   for (let index = 0; index < SHAPE_NAMES.length; index++) {
     placeRectangle(
@@ -158,6 +196,62 @@ function updateShapes(overlay, scene) {
   overlay.velocity.position.set(pose.x, pose.y);
   overlay.contact[0].position.set(pose.x - 3, pose.y);
   overlay.contact[1].position.set(pose.x, pose.y - 3);
+
+  // ---- Self real-time attack body (amber) ----
+  // Override the static preview attack rect with the real-time one from entity data.
+  const selfView = onlineScene.views?.get?.(onlineScene.selfId);
+  if (selfView?.entity?.combatState?.phase === "attack") {
+    const actionName = selfView.entity.action;
+    const weaponType = selfView.entity.avatar?.combat?.weaponType;
+    if (weaponType && actionName && overlay.catalog) {
+      const rect = getAttackRectangle(overlay.catalog, weaponType, actionName);
+      if (rect) {
+        placeAuthoredRectangle(
+          overlay.rectangles[1],  // amber = attack
+          rect,
+          selfView.drawX ?? selfView.entity.position?.x ?? sim.x,
+          selfView.drawY ?? selfView.entity.position?.y ?? sim.y,
+          selfView.entity.facing > 0 ? 1 : -1,
+        );
+      }
+    }
+  }
+
+  // ---- Mob body rectangles (green) ----
+  let mobIndex = 0;
+  const viewValues = onlineScene.views?.values?.() ?? [];
+  for (const view of viewValues) {
+    const entity = view.entity;
+    if (!entity || entity.kind !== "mob") continue;
+    if (mobIndex >= MAX_MOB_RECTS) break;
+    const mobEdges = overlay.mobRects[mobIndex];
+    let bodyRect = null;
+    try {
+      const actionData = view.life?.actions?.[view.animation?.action];
+      const frames = actionData?.frames;
+      if (frames?.length) {
+        const frameIdx = Math.max(0, Math.min(view.animation?.frame ?? 0, frames.length - 1));
+        bodyRect = frames[frameIdx].body;
+      }
+    } catch { /* ignore */ }
+    if (bodyRect) {
+      placeAuthoredRectangle(
+        mobEdges,
+        bodyRect,
+        view.drawX,
+        view.drawY,
+        entity.facing > 0 ? 1 : -1,
+      );
+      mobIndex++;
+    } else {
+      for (let i = 0; i < 4; i++) mobEdges[i].visible = false;
+    }
+  }
+  for (; mobIndex < MAX_MOB_RECTS; mobIndex++) {
+    const mobEdges = overlay.mobRects[mobIndex];
+    for (let i = 0; i < 4; i++) mobEdges[i].visible = false;
+  }
+  overlay._activeMobCount = mobIndex;
 }
 
 function contactSprites(container) {
@@ -180,29 +274,32 @@ function applyPreview(context, preview, pose) {
   context.damage.y = pose.y;
   context.damage.facing = pose.facing;
 }
-/** @param {object} overlay @param {object} scene @param {boolean} enabled */
-function updateOverlay(overlay, scene, enabled) {
-  const visible = enabled && Boolean(scene?.simulation);
-  overlay.scene = scene;
+/** @param {object} overlay @param {object} onlineScene @param {boolean} enabled */
+function updateOverlay(overlay, onlineScene, enabled) {
+  const streamScene = onlineScene?.scene;
+  const visible = enabled && Boolean(streamScene?.simulation);
+  overlay.scene = streamScene;
+  overlay.onlineScene = onlineScene;
 
   overlay.container.visible = visible;
   overlay.readout.hidden = !visible;
   if (!visible) return;
   if (
-    overlay.manifest !== scene.manifest ||
-    overlay.simulation !== scene.simulation
+    overlay.manifest !== streamScene.manifest ||
+    overlay.simulation !== streamScene.simulation
   ) {
-    drawFootholds(overlay, scene);
+    drawFootholds(overlay, streamScene);
   }
-  overlay.container.position.set(-scene.camera.x, -scene.camera.y);
-  updateShapes(overlay, scene);
+  overlay.container.position.set(-streamScene.camera.x, -streamScene.camera.y);
+  updateShapes(overlay, streamScene, onlineScene);
 }
 
 /** World-space geometry and side-panel diagnostic text; no guessed sprite hitboxes.
  * @param {import('pixi.js').Application} app initialized WebGL application
  * @param {HTMLElement} inspectionHost side-panel diagnostic destination
+ * @param {object} catalog loaded catalog.json for weapon attack rectangle lookup
  */
-export function createDebugOverlay(app, inspectionHost) {
+export function createDebugOverlay(app, inspectionHost, catalog) {
   const container = new Container({ label: "physics-debug", zIndex: 1000000 });
   const lines = new Graphics();
   container.addChild(lines);
@@ -211,6 +308,13 @@ export function createDebugOverlay(app, inspectionHost) {
   readout.hidden = true;
   inspectionHost.appendChild(readout);
   app.stage.addChild(container);
+
+  // Pre-allocate mob body rectangles (green)
+  const mobRects = [];
+  for (let i = 0; i < MAX_MOB_RECTS; i++) {
+    mobRects.push(rectangleSprites(container, MOB_COLOR));
+  }
+
   const overlay = {
     container,
     lines,
@@ -218,23 +322,26 @@ export function createDebugOverlay(app, inspectionHost) {
     manifest: null,
     simulation: null,
     scene: null,
+    catalog: catalog ?? null,
     shapes: createHitboxState(),
     context: { action: "", frame: 0, elapsedMs: 0, attacking: false },
     rectangles: SHAPE_COLORS.map((color) => rectangleSprites(container, color)),
+    mobRects,
     velocity: lineSprite(container, 0xffffff),
     contact: contactSprites(container),
+    _activeMobCount: 0,
   };
   const sampler = setInterval(() => {
     if (overlay.container.visible && overlay.scene) {
-      updateReadout(overlay, overlay.scene);
+      updateReadout(overlay, overlay.scene, overlay.onlineScene);
     }
   }, READOUT_INTERVAL_MS);
   return {
     snapshot() {
       return overlay.container.visible ? structuredClone(overlay.shapes) : null;
     },
-    update(scene, enabled) {
-      updateOverlay(overlay, scene, enabled);
+    update(onlineScene, enabled) {
+      updateOverlay(overlay, onlineScene, enabled);
     },
     destroy() {
       clearInterval(sampler);
