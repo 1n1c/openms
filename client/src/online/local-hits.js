@@ -21,6 +21,7 @@ const MAX_RECOIL_STEP_MS = 100;
 /** A locally predicted knockback the authority never confirms is freed after this long. */
 const RECOIL_RELEASE_MS = 500;
 /** Presentation tolerance: below this the predicted and authoritative paths have met. */
+const MAX_PRESENT_GAP_MS = 50;
 const RECOIL_EPSILON_PX = 0.01;
 const REACTION_ACTION = "hit1";
 const BASIC_INFO = Object.freeze({ damage: 100 });
@@ -45,8 +46,25 @@ export class LocalHits {
     this.pending = new Map();
     this.reactions = new Map();
     this.timers = new Set();
-    // De-dupe hit effect spawns: both local prediction and server impact may race to spawn.
-    this.hitEffectSpawned = new Set();
+    // De-dupe hit effect spawns (both local prediction and server-driven fallback).
+    // Key: targetId, value: last spawn timestamp. Window: HITFX_DEDUPE_MS.
+    this.hitEffectSpawned = new Map();
+  }
+
+  /** Hit effect spawn dedupe window — same target cannot spawn twice within this. */
+  static HITFX_DEDUPE_MS = 300;
+
+  /** Check and optionally mark a targetId as having spawned hit effect recently.
+   *  Returns true if this call is the first within the dedupe window (should spawn),
+   *  false if a recent spawn exists (should skip). Used by both local prediction
+   *  path and server fallback path to prevent double hit effects. */
+  tryMarkHitEffectSpawned(targetId, now = this.now()) {
+    const last = this.hitEffectSpawned.get(targetId);
+    if (last !== undefined && now - last < LocalHits.HITFX_DEDUPE_MS) {
+      return false;
+    }
+    this.hitEffectSpawned.set(targetId, now);
+    return true;
   }
 
   /** Roll provisional lines on the input edge, as in the original chain (`009581a9`).
@@ -115,6 +133,25 @@ export class LocalHits {
           line,
           damage: rolls[line].amount,
           critical: rolls[line].critical,
+        });
+        // Populate pending queue ENTIRELY at input edge time, NOT in presentResolved().
+        // This must happen BEFORE any server impact can race in and call consume().
+        // Previously remember() ran inside presentResolved() → pending queue was empty
+        // when server impact arrived before release frame → takePrediction returned null
+        // → server spawned hit effect + local present() also spawned → double hit effect.
+        this.prune();
+        const targetId = view.entity.id;
+        let queue = this.pending.get(targetId);
+        if (!queue) { queue = []; this.pending.set(targetId, queue); }
+        if (queue.length >= MAX_PENDING) queue.shift();
+        queue.push({
+          at: this.now(),  // Will be updated by remember() in presentResolved; only for dedupe matching here
+          damage: rolls[line].amount,
+          line,
+          skillId: record.skillId ?? 0,
+          record,
+          soundPlayed: false,
+          hitEffectPlayed: false,
         });
       }
     }
@@ -267,12 +304,25 @@ export class LocalHits {
       queue = [];
       this.pending.set(id, queue);
     }
+    const line = details.line ?? 0;
+    const skillId = details.record?.skillId ?? 0;
+    // Update existing entry already pre-populated by resolve() at input edge time.
+    // Don't push a duplicate — resolve() created this entry eagerly to win the
+    // race against early server impacts.
+    const existingIdx = queue.findIndex(
+      (e) => e.line === line && e.skillId === skillId && e.record === details.record,
+    );
+    if (existingIdx >= 0) {
+      queue[existingIdx].at = this.now() + delay;
+      queue[existingIdx].damage = amount;
+      return;
+    }
     if (queue.length >= MAX_PENDING) queue.shift();
     queue.push({
       at: this.now() + delay,
       damage: amount,
-      line: details.line ?? 0,
-      skillId: details.record?.skillId ?? 0,
+      line,
+      skillId,
       record: details.record,
     });
   }
@@ -308,10 +358,9 @@ export class LocalHits {
 
   /** Spawn hit.img spark effect locally at the release frame — same timing as react/recoil.
    *  melee basic attacks only; ranged/magic have their own Skill.wz visuals.
-   *  De-duped against server-driven spawn via hitEffectSpawned Set. */
+   *  De-duped against server-driven spawn via tryMarkHitEffectSpawned (shared Map). */
   playHitEffect(view, record) {
     const targetId = view.entity.id;
-    const dedupeKey = `${targetId}:${record.identity}`;
     // Mark all pending entries from this record for this targetId.
     const queue = this.pending.get(targetId);
     if (queue?.length) {
@@ -325,9 +374,8 @@ export class LocalHits {
     if (!weaponType) return;
     const group = weaponHitGroup(weaponType);
     if (!group) return;
-    // De-dupe: server impact may race here and already spawned
-    if (this.hitEffectSpawned.has(dedupeKey)) return;
-    this.hitEffectSpawned.add(dedupeKey);
+    // Shared dedupe: server fallback spawn may race here and already spawned.
+    if (!this.tryMarkHitEffectSpawned(targetId)) return;
     const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
     const combatPresentation = this.combat.scene?.events?.combat;
     if (!combatPresentation?.onHitEffect) return;
@@ -487,11 +535,10 @@ export class LocalHits {
     const view = this.combat.scene?.views?.get(event.targetId);
     if (view?.recoil && event.damage > 0) view.recoil.confirmed = true;
     // Mark hitEffectPlayed early so server path knows local present may still spawn.
-    // This prevents server + local double-spawn when server impact arrives before release frame.
     if (!prediction.hitEffectPlayed) prediction.hitEffectPlayed = true;
     return {
       soundPlayed: Boolean(prediction.soundPlayed),
-      hitEffectPlayed: true,  // Always mark true after consume; server path may still need spawn fallback
+      hitEffectPlayed: true,
     };
   }
 

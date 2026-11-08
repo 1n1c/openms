@@ -176,9 +176,22 @@ export class SceneEvents {
     if (!weaponType) return;
     const group = weaponHitGroup(weaponType);
     if (!group) return;
-    const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
     const pos = event.position;
     if (!pos) return;
+    // Shared dedupe: try the LocalHits Map first (local prediction path may
+    // have already spawned at release frame). Fall back to our own Map if
+    // localCombat is not yet wired up.
+    const hits = this.owner.localCombat?.hits;
+    if (hits) {
+      if (!hits.tryMarkHitEffectSpawned(event.targetId)) return;
+    } else {
+      const now = performance.now();
+      const last = this._hitFxDedupe?.get(event.targetId);
+      if (last !== undefined && now - last < 300) return;
+      if (!this._hitFxDedupe) this._hitFxDedupe = new Map();
+      this._hitFxDedupe.set(event.targetId, now);
+    }
+    const variant = `${group}${Math.random() < 0.5 ? "1" : "2"}`;
     const facing = actor?.animation?.container?.scale?.x < 0 ? -1 : 1;
     this.combat.onHitEffect(pos.x, pos.y, facing, variant);
   }
