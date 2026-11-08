@@ -418,10 +418,9 @@ export class OfflineField {
         this.simulation.x - 65,
       );
     }
-    context.closeTarget =
-      this.selectAttackTargets(1) > 0 ||
-      this.hooks.canStrike?.(this.attackBody, this.simulation.facing, 0) ===
-        true;
+    const before = this.selectAttackTargets(1);
+    const canStrike = this.hooks.canStrike?.(this.attackBody, this.simulation.facing, 0) === true;
+    context.closeTarget = before > 0 || canStrike;
     selectWeaponUse(this.combat, context, this.weaponUse);
   }
 

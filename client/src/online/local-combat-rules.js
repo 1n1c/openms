@@ -2,10 +2,50 @@ import {
   selectAmmunition,
   selectWeaponUse,
   createWeaponUse,
+  isRangedWeapon,
+  MELEE_ACTIONS,
 } from "../combat/weapon-usage.js";
 import { projectilePreview } from "./local-projectile-rules.js";
 import { COMBAT_SKILLS } from "../skills/skill-combat-rules.js";
 import { skillAttackAction } from "../skills/skill-action-rules.js";
+
+/** Probe whether any nearby monster falls inside the ranged weapon's
+ *  melee reach (≤65px from player center in facing direction, plus
+ *  body height slack). Mirrors the server's offline-field probeMeleeTarget().
+ *  Uses scene.views which have drawX/drawY rendering positions. */
+function probeCloseTarget(owner, combat, sim) {
+  if (!isRangedWeapon(combat.weaponType)) return false;
+  const meleeRow = MELEE_ACTIONS[combat.equipment.attack];
+  if (!meleeRow?.length) return false;
+  const scene = owner.hooks.scene();
+  if (!scene?.views?.size) return false;
+  const facing = sim.facing > 0;
+  // Server uses randomWord to pick swingT1 OR swingT3 — both WZ rectangles differ.
+  // Probe ALL melee actions so ANY hitbox match returns closeTarget=true.
+  // This mirrors server's selectAttackTargets(1) check exactly —
+  // server's additional canStrike reactor hook only matters for edge-case geometry
+  // where client render drifts from server physics; that gap is handled by
+  // scene-events ranged→melee override (which cancels the projectile preview).
+  for (const meleeAction of meleeRow) {
+    const rect = combat.attacks?.[meleeAction]?.rectangle;
+    if (!rect) continue;
+    let left = sim.x + (facing ? -rect.right : rect.left);
+    let right = sim.x + (facing ? -rect.left : rect.right);
+    if (facing) right = Math.min(right, sim.x + 65);
+    else left = Math.max(left, sim.x - 65);
+    const top = sim.y + rect.top;
+    const bottom = sim.y + rect.bottom;
+    for (const view of scene.views.values()) {
+      if (view.entity?.kind !== "mob") continue;
+      const mobX = view.drawX;
+      const mobY = view.drawY;
+      if (mobX >= left && mobX <= right && mobY >= top && mobY <= bottom) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 /** Presentation selection shares the authored action rules, never their damage/RNG owner. */
 export function localAttackSpec(owner, skillId, variant) {
@@ -18,6 +58,9 @@ export function localAttackSpec(owner, skillId, variant) {
   if (skillId) return skillSpec(owner, combat, derived, skillId);
   if (!combat) return null;
   const use = createWeaponUse();
+  const closeTarget = !sim.crouching
+    && isRangedWeapon(combat.weaponType)
+    && probeCloseTarget(owner, combat, sim);
   selectWeaponUse(
     combat,
     {
@@ -30,18 +73,17 @@ export function localAttackSpec(owner, skillId, variant) {
         combat.weaponId,
       ),
       unlimitedAmmunition: Boolean(derived.soulArrow || derived.shadowStars),
-      closeTarget: false,
+      closeTarget,
       items: owner.catalog.ui.items,
     },
     use,
   );
+  const projectile = projectilePreview(owner, combat, {}, use);
   return {
     action: use.action,
     speed: attackSpeed(combat, derived, null, null),
     sfx: combat.equipment.sfx,
-    projectile: projectilePreview(owner, combat, {}, use),
-    // Local hit presentation reuses the same admitted weapon row; the server still owns
-    // whether the damage lands.
+    projectile,
     use,
     info: null,
     spec: null,

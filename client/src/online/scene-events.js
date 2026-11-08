@@ -1,7 +1,8 @@
 import { GameplayEffects } from "../audio/gameplay-effects.js";
 import { CombatPresentation } from "../combat/combat-presentation.js";
 import { SpeechBubbles } from "../rendering/speech-bubbles.js";
-import { weaponHitGroup } from "../combat/weapon-usage.js";
+import { weaponHitGroup, MELEE_ACTIONS } from "../combat/weapon-usage.js";
+import { weaponActionDuration, weaponActionRelease } from "../combat/weapon-usage.js";
 
 const MAX_PROJECTILE_EVENTS = 1024;
 const PROJECTILE_EVENT_LIFETIME = 10000;
@@ -39,6 +40,7 @@ export class SceneEvents {
   async event(message) {
     const event = message.event;
     if (event.kind === "equipment.enhancement") this.enhancement(event);
+    else if (event.kind === "combat.attack") this.attack(event);
     else if (event.kind === "combat.impact") this.damage(event);
     else if (event.kind === "projectile") this.projectile(event);
     else if (event.kind === "drop.pickup") this.owner.drops.pickup(event);
@@ -66,9 +68,46 @@ export class SceneEvents {
     }
   }
 
+  /** Server authoritative attack confirmation — use server-selected action (melee vs ranged)
+   *  to override the client's local prediction, since client-side cannot probe mob position
+   *  at prediction time (scene.entities only has render-layer data, not physics/simulation). */
+  attack(event) {
+    const selfId = this.owner.selfId;
+    if (!selfId || event.actorId !== selfId) return;
+    const record = this.owner.localCombat?.match(event);
+    if (!record) return;
+    if (event.action && record.action !== event.action) {
+      // Only override when melee ↔ ranged type differs.
+      // swingT1 vs swingT3 (both melee) or shoot1 vs shoot2 (both ranged)
+      // keep client prediction to avoid one-frame animation flicker.
+      const MELEE_SET = new Set(MELEE_ACTIONS.flat());
+      const clientIsMelee = MELEE_SET.has(record.action);
+      const serverIsMelee = MELEE_SET.has(event.action);
+      if (clientIsMelee !== serverIsMelee) {
+        record.action = event.action;
+        // If server says it's melee but client predicted ranged, cancel the arrow
+        if (record.projectile && serverIsMelee) {
+          this.owner.localCombat?.projectiles.cancel(record);
+          record.projectile = null;
+          record.hitRay = false;
+        }
+        this.owner.actor?.setAction(event.action, "once", true);
+      }
+    }
+    record.confirmed = true;
+  }
+
   projectile(event) {
     if (this.projectileCount >= MAX_PROJECTILE_EVENTS) {
       throw new Error("Online projectile event residency limit");
+    }
+    // Reconcile local hit prediction with authoritative server targetId.
+    // Critical when two monsters overlap — client previewTarget() may pick a
+    // different mob than server projectileTarget(), causing "fake hit effect
+    // on wrong mob that doesn't take damage".
+    if (event.actorId === this.owner.selfId) {
+      const record = this.owner.localCombat?.match(event);
+      if (record) this.owner.localCombat?.hits?.overrideProjectileTarget(record, event.targetId);
     }
     if (!this.owner.localCombat?.projectiles.ammunitionEcho(event)) {
       this.combat.onProjectile({

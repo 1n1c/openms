@@ -89,6 +89,40 @@ export class LocalHits {
     );
   }
 
+  /** When the server sends the authoritative projectile targetId, reconcile any local
+   *  prediction that picked a different mob (common when two monsters overlap).
+   *  Swaps the resolved view + migrates pending queue entries so presentResolved()
+   *  and server consumeImpact() both hit the same authoritative target. */
+  overrideProjectileTarget(record, serverTargetId) {
+    if (!record.projectile) return false;
+    if (!record.resolved?.length) return false;
+    const oldView = record.resolved[0].view;
+    if (!oldView || oldView.entity.id === serverTargetId) return false;
+    const scene = this.combat.scene;
+    if (!scene) return false;
+    const newView = scene.views?.get(serverTargetId);
+    if (!newView) return false;
+    // Migrate pending queue: old targetId → new targetId
+    const oldQueue = this.pending.get(oldView.entity.id);
+    const newQueue = this.pending.get(serverTargetId);
+    if (oldQueue?.length) {
+      if (newQueue) {
+        // Dedup by merging old into new, preferring entries not yet consumed
+        for (const entry of oldQueue) {
+          if (!entry.hitEffectPlayed && !newQueue.some(e => e.line === entry.line)) {
+            newQueue.push(entry);
+          }
+        }
+      } else {
+        this.pending.set(serverTargetId, oldQueue);
+      }
+      this.pending.delete(oldView.entity.id);
+    }
+    // Swap the view in resolved
+    record.resolved[0].view = newView;
+    return true;
+  }
+
   avatarCombat() {
     return this.stage?.actor?.avatar?.combat ?? null;
   }
