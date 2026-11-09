@@ -95,19 +95,34 @@ export class LocalHits {
    *  and server consumeImpact() both hit the same authoritative target. */
   overrideProjectileTarget(record, serverTargetId) {
     if (!record.projectile) return false;
-    if (!record.resolved?.length) return false;
-    const oldView = record.resolved[0].view;
-    if (!oldView || oldView.entity.id === serverTargetId) return false;
+    const oldView = record.resolved?.[0]?.view;
+    if (oldView && oldView.entity.id === serverTargetId) {
+      // resolve() already ran and picked the server's target — nothing to do
+      return false;
+    }
     const scene = this.combat.scene;
     if (!scene) return false;
     const newView = scene.views?.get(serverTargetId);
     if (!newView) return false;
+    // Case A: resolve() already ran but picked a different mob — swap now
+    if (oldView) {
+      this._swapResolvedView(record, oldView, newView, serverTargetId);
+      return true;
+    }
+    // Case B (RACE): projectile event arrived BEFORE resolve() — stash serverTargetId
+    // on the record so resolve() applies it when it runs next. This happens because
+    // server input → projectile event → RTT is faster than client input → arm() → resolve()
+    // when the connection is very fast (or server processes ranged attacks with minimal delay).
+    record._pendingProjectileTarget = serverTargetId;
+    return true;
+  }
+
+  _swapResolvedView(record, oldView, newView, serverTargetId) {
     // Migrate pending queue: old targetId → new targetId
     const oldQueue = this.pending.get(oldView.entity.id);
     const newQueue = this.pending.get(serverTargetId);
     if (oldQueue?.length) {
       if (newQueue) {
-        // Dedup by merging old into new, preferring entries not yet consumed
         for (const entry of oldQueue) {
           if (!entry.hitEffectPlayed && !newQueue.some(e => e.line === entry.line)) {
             newQueue.push(entry);
@@ -118,9 +133,7 @@ export class LocalHits {
       }
       this.pending.delete(oldView.entity.id);
     }
-    // Swap the view in resolved
     record.resolved[0].view = newView;
-    return true;
   }
 
   avatarCombat() {
@@ -190,6 +203,17 @@ export class LocalHits {
       }
     }
     record.resolved = resolved;
+    // If a server projectile event raced ahead of resolve() (common with fast
+    // connections or minimal ranged-attack delay), apply the stashed authoritative
+    // targetId now so presentResolved() and consumeImpact() both hit the same mob.
+    if (record._pendingProjectileTarget && resolved.length) {
+      const newView = scene.views?.get(record._pendingProjectileTarget);
+      const oldView = resolved[0].view;
+      if (newView && oldView && oldView.entity.id !== newView.entity.id) {
+        this._swapResolvedView(record, oldView, newView, record._pendingProjectileTarget);
+      }
+      record._pendingProjectileTarget = null;
+    }
     this.report(record, hits);
   }
 
@@ -211,24 +235,32 @@ export class LocalHits {
   presentResolved(record) {
     if (record.rejected) return;
     const origin = this.stage?.presentation;
+    let index = 0;
     for (const entry of record.resolved ?? []) {
-      const view = entry.view;
+      // Capture index so the closure reads the LATEST view from record.resolved
+      // instead of a stale local variable. overrideProjectileTarget() swaps
+      // record.resolved[index].view when the server says we picked the wrong
+      // mob (common with overlapping monsters and fast connections), and the
+      // scheduled present() must reflect that swap.
+      const entryIndex = index;
       const delay = record.hitRay
         ? origin
-          ? flightMs(origin, view, record.projectile)
+          ? flightMs(origin, entry.view, record.projectile)
           : 0
         : 0;
       for (let line = 0; line < entry.rolls.length; line++) {
-        this.remember(view, entry.rolls[line].amount, delay, {
+        this.remember(entry.view, entry.rolls[line].amount, delay, {
           record,
           line,
         });
       }
       if (delay > 0) {
-        this.schedule(record, delay, () =>
-          this.present(record, view, entry.rolls),
-        );
-      } else this.present(record, view, entry.rolls);
+        this.schedule(record, delay, () => {
+          const latestView = record.resolved?.[entryIndex]?.view;
+          if (latestView) this.present(record, latestView, entry.rolls);
+        });
+      } else this.present(record, entry.view, entry.rolls);
+      index++;
     }
   }
 

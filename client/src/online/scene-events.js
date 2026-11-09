@@ -107,7 +107,7 @@ export class SceneEvents {
     // on wrong mob that doesn't take damage".
     if (event.actorId === this.owner.selfId) {
       const record = this.owner.localCombat?.match(event);
-      if (record) this.owner.localCombat?.hits?.overrideProjectileTarget(record, event.targetId);
+      record && this.owner.localCombat?.hits?.overrideProjectileTarget(record, event.targetId);
     }
     if (!this.owner.localCombat?.projectiles.ammunitionEcho(event)) {
       this.combat.onProjectile({
